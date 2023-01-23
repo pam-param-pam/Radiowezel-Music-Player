@@ -1,20 +1,15 @@
+import json
 import logging
-import os
+import threading
 import time
 from json import JSONDecodeError
 
-import pygame
-from pygame import mixer
-import json
+import websocket
 
 from Player import Player
-import websocket
-import threading
-
 from guard import canPlay
 
 pl = Player()
-pygame.init()
 
 pl.start()
 """
@@ -156,7 +151,7 @@ def on_error(webSocket, error):
 ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
                             on_close=on_close,
                             on_error=on_error,
-                            on_open=on_open, header={"token": 'TOKEN'})
+                            on_open=on_open, header={"token": 'RXdhQ3phamtvd3NrYQ=='})
 
 
 def send_pos():
@@ -166,9 +161,9 @@ def send_pos():
             if pl.currentSong:
 
                 pos = pl.formatSeconds(round(pl.musicPos))
-                length = pl.formatSeconds(pl.currentSong.length)
-                b = round((pl.musicPos * 10000) / pl.currentSong.length)
-                if mixer.music.get_busy():
+                length = pl.formatSeconds(pl.get_length())
+                b = round((pl.musicPos * 10000) / pl.get_length())
+                if pl.VLCPlayer.is_playing():
 
                     if a != b:
                         pl.communicateBack(
@@ -200,20 +195,17 @@ def run_for_eternity():
 def listener():
     while True:
         try:
-            for event in pygame.event.get():
 
-                if event.type == Player.MUSIC_END:
+            if not pl.VLCPlayer.is_playing():
 
-                    pl.musicPos = 0
+                if not pl.stopped or not pl.force_stopped:
                     time.sleep(timeBetweenSongs)
-                    if not pl.stopped or not pl.force_stopped:
-
-                        if pl.repeat:
-                            pygame.mixer.music.load("audio/" + pl.currentSong.id + ".mp3")
-                            pygame.mixer.music.play()
-                        else:
-                            pl.currentSong = None
-                            pl.play()
+                    if pl.repeat:
+                        pl.restore_in_queue(pl.currentSong.id, 0)
+                        pl.play()
+                    else:
+                        pl.currentSong = None
+                        pl.play()
         except Exception as e:
             logger.error("Error happened in listener:\n" + str(e))
 
@@ -244,7 +236,7 @@ while True:
         pl.pauseFadeout()
         pl.force_stopped = True
 
-    if canPlay() and not pl.stopped and not mixer.music.get_busy():
+    if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing():
         if pl.queue.is_empty():
             logger.debug("Break started! No music to start")
 
