@@ -156,7 +156,7 @@ def on_error(webSocket, error):
 ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
                             on_close=on_close,
                             on_error=on_error,
-                            on_open=on_open, header={"token": 'RXdhQ3phamtvd3NrYQ=='})
+                            on_open=on_open, header={"token": 'TOKEN'})
 
 
 def send_pos():
