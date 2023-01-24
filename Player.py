@@ -13,6 +13,7 @@ import vlc
 
 import guard
 from Queue import Queue
+from Song import Song
 from exceptions import AgeRestrictedVideo, VideoTooLong
 from guard import canPlay
 
@@ -33,14 +34,21 @@ class Player(Thread):
         self.taskId = None
         self.musicPos = 0
         self.instance = vlc.Instance()
-
+        self.fetching = False
         self.VLCPlayer = self.instance.media_player_new()
 
+        self.vlc_events = self.VLCPlayer.event_manager()
+        self.vlc_events.event_attach(vlc.EventType.MediaPlayerEndReached, self.song_finished_callback)
+
     def run(self):
-        while True:
-            if self.VLCPlayer.is_playing():
-                self.musicPos = self.VLCPlayer.get_time()
-            time.sleep(1)
+        print("HELLO")
+
+    def song_finished_callback(self, data):
+        if self.repeat:
+            self.restore_in_queue(self.currentSong.id, 0)
+        self.currentSong = None
+
+        self.next()
 
     def communicateBack(self, message, removeTaskId=True):
 
@@ -135,20 +143,40 @@ class Player(Thread):
                 else:  # nie gra bo nigdy nie gralo
                     if not self.queue.is_empty():
                         song = self.queue.peek(0)
+                        print(1)
                         if song:
-                            video = pafy.new("https://www.youtube.com/watch?v=" + song.id)
+                            self.fetching = True
+                            self.communicateBack(
+                                {"worker": "player", "action": "play", "cookie": "rewrite", "status": "info",
+                                 "info": "Fetching...",
+                                 "taskId": self.taskId})
 
+                            video = pafy.new("https://www.youtube.com/watch?v=" + song.id)
+                            print(2)
                             best = video.getbestaudio()
+                            print(3)
+
                             url = best.url
+                            print(4)
+
                             media = self.instance.media_new(url)
+                            print(5)
+                            print(media)
                             media.get_mrl()
+                            print(6)
+                            self.VLCPlayer = self.instance.media_player_new()
+
                             self.VLCPlayer.set_media(media)
+                            print(7)
 
                             self.VLCPlayer.play()
-
-                            self.currentSong = self.queue.peek(0)
+                            self.currentSong = song
+                            while not self.VLCPlayer.is_playing:
+                                pass
+                            self.fetching = False
                             self.queue.remove_by_index(0)
                             self.notifyAboutQueueChange()
+                            print(8)
                             if isNext:
                                 self.communicateBack(
                                     {"worker": "player", "cookie": "rewrite", "action": "next", "status": "success",
@@ -196,15 +224,15 @@ class Player(Thread):
                  "taskId": self.taskId},
                 False)
 
-            volume = self.VLCPlayer.get_volume()
+            volume = self.VLCPlayer.audio_get_volume()
 
             for x in range(100):
-                self.VLCPlayer.set_volume(volume - (volume / 100) * x)
+                self.VLCPlayer.audio_set_volume(int(volume - (volume / 100) * x))
                 time.sleep(0.03)
 
             self.VLCPlayer.set_pause(True)
             self.stopped = True
-            self.VLCPlayer.set_volume(volume)
+            self.VLCPlayer.audio_set_volume(volume)
             self.communicateBack(
                 {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success", "info": "Paused",
                  "taskId": self.taskId})
@@ -234,9 +262,8 @@ class Player(Thread):
     def seek(self, slideValue):
         logger.debug("Seek request acknowledged")
 
-        self.VLCPlayer.set_time(slideValue)
-        x = slideValue * self.get_length() / 10000
-
+        x = slideValue * round(self.get_length() / 1000) / 10000
+        self.VLCPlayer.set_time(int(x * 1000))
         self.communicateBack(
             {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success",
              "info": "Sought to " + str(self.formatSeconds(x)),
@@ -252,10 +279,9 @@ class Player(Thread):
 
     def get_volume(self):
         logger.debug("Get volume request acknowledged")
-
         self.communicateBack(
             {"worker": "player", "action": "set_volume", "cookie": "rewrite", "status": "success",
-             "volume": round(mixer.music.get_volume() * 100),
+             "volume": round(self.VLCPlayer.audio_get_volume()),
              "taskId": self.taskId})
 
     def get_repeat(self):
@@ -345,6 +371,7 @@ class Player(Thread):
         self.notifyAboutQueueChange()
 
     def get_length(self):
+
         return self.VLCPlayer.get_length()
 
     def restore_in_queue(self, videoId, position):

@@ -20,7 +20,7 @@ logger.basicConfig(filename="logs.txt",
                     level=logger.DEBUG)
 """
 logger = logging.getLogger('Main')
-logger.setLevel(logging.WARNING)
+logger.setLevel(logging.DEBUG)
 timeBetweenSongs = 0  # seconds
 
 
@@ -158,24 +158,25 @@ def send_pos():
     a = 0
     while True:
         try:
-            if pl.currentSong:
+            length = pl.get_length()
+            if pl.currentSong and length:
 
-                pos = pl.formatSeconds(round(pl.musicPos))
-                length = pl.formatSeconds(pl.get_length())
-                b = round((pl.musicPos * 10000) / pl.get_length())
+                FormattedPos = pl.formatSeconds(round(pl.VLCPlayer.get_time() / 1000))
+                FormattedLength = pl.formatSeconds(length / 1000)
+                b = round((pl.VLCPlayer.get_time() * 10000) / length)
                 if pl.VLCPlayer.is_playing():
 
                     if a != b:
                         pl.communicateBack(
                             {"worker": "player", "pos": b, "title": pl.currentSong.title, "taskId": 100_000,
-                             "length": length, "seconds": pos}, False)
+                             "length": FormattedLength, "seconds": FormattedPos}, False)
                         a = b
                 else:
                     if pl.stopped or pl.force_stopped:
                         pl.communicateBack(
                             {"worker": "player", "pos": b, "title": "Stopped(" + pl.currentSong.title + ")",
                              "taskId": 100_000,
-                             "length": length, "seconds": pos}, False)
+                             "length": FormattedLength, "seconds": FormattedPos}, False)
             else:
                 pl.communicateBack(
                     {"worker": "player", "pos": 0, "title": "Nothing is playing", "taskId": 100_000,
@@ -192,31 +193,8 @@ def run_for_eternity():
         reconnect=5)  # Set dispatcher to automatic reconnection, 5 second reconnect delay if connection closed unexpectedly
 
 
-def listener():
-    while True:
-        try:
-
-            if not pl.VLCPlayer.is_playing():
-
-                if not pl.stopped or not pl.force_stopped:
-                    time.sleep(timeBetweenSongs)
-                    if pl.repeat:
-                        pl.restore_in_queue(pl.currentSong.id, 0)
-                        pl.play()
-                    else:
-                        pl.currentSong = None
-                        pl.play()
-        except Exception as e:
-            logger.error("Error happened in listener:\n" + str(e))
-
-        time.sleep(1)
-
-
 wst = threading.Thread(target=run_for_eternity)
 wst.start()
-
-lst = threading.Thread(target=listener)
-lst.start()
 
 time.sleep(1)
 
@@ -225,7 +203,6 @@ sp.start()
 
 pl.add_to_queue('DtVBCG6ThDk')
 
-pl.play()
 
 while True:
     time.sleep(10)
@@ -236,7 +213,7 @@ while True:
         pl.pauseFadeout()
         pl.force_stopped = True
 
-    if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing():
+    if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing() and not pl.fetching:
         if pl.queue.is_empty():
             logger.debug("Break started! No music to start")
 
