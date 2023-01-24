@@ -6,14 +6,11 @@ from threading import Thread
 import jsonpickle
 import pafy
 import spotipy
-from pygame import mixer
 from spotipy import SpotifyClientCredentials, SpotifyException
 from websocket import WebSocketConnectionClosedException
 import vlc
-
 import guard
 from Queue import Queue
-from Song import Song
 from exceptions import AgeRestrictedVideo, VideoTooLong
 from guard import canPlay
 
@@ -21,7 +18,6 @@ logger = logging.getLogger('Main')
 
 
 class Player(Thread):
-    MUSIC_END = 1
 
     def __init__(self):
         Thread.__init__(self)
@@ -35,20 +31,32 @@ class Player(Thread):
         self.musicPos = 0
         self.instance = vlc.Instance()
         self.fetching = False
+        self.init()
+        self.VLCPlayer = None
+        self.vlc_events = None
+        self.init()
+
+    def init(self):
         self.VLCPlayer = self.instance.media_player_new()
 
         self.vlc_events = self.VLCPlayer.event_manager()
         self.vlc_events.event_attach(vlc.EventType.MediaPlayerEndReached, self.song_finished_callback)
 
     def run(self):
-        print("HELLO")
+        logger.info("Hello from Player")
 
     def song_finished_callback(self, data):
+
+        logger.debug("Song finished")
         if self.repeat:
+            logger.debug("Song finished repeat")
             self.restore_in_queue(self.currentSong.id, 0)
+
+        logger.debug("Song finished next")
+
         self.currentSong = None
 
-        self.next()
+        self.play()
 
     def communicateBack(self, message, removeTaskId=True):
 
@@ -143,31 +151,24 @@ class Player(Thread):
                 else:  # nie gra bo nigdy nie gralo
                     if not self.queue.is_empty():
                         song = self.queue.peek(0)
-                        print(1)
                         if song:
                             self.fetching = True
                             self.communicateBack(
                                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "info",
                                  "info": "Fetching...",
                                  "taskId": self.taskId})
-
+                            self.VLCPlayer.set_pause(True)
+                            self.init()
                             video = pafy.new("https://www.youtube.com/watch?v=" + song.id)
-                            print(2)
                             best = video.getbestaudio()
-                            print(3)
 
                             url = best.url
-                            print(4)
 
                             media = self.instance.media_new(url)
-                            print(5)
-                            print(media)
+
                             media.get_mrl()
-                            print(6)
-                            self.VLCPlayer = self.instance.media_player_new()
 
                             self.VLCPlayer.set_media(media)
-                            print(7)
 
                             self.VLCPlayer.play()
                             self.currentSong = song
@@ -176,7 +177,6 @@ class Player(Thread):
                             self.fetching = False
                             self.queue.remove_by_index(0)
                             self.notifyAboutQueueChange()
-                            print(8)
                             if isNext:
                                 self.communicateBack(
                                     {"worker": "player", "cookie": "rewrite", "action": "next", "status": "success",
