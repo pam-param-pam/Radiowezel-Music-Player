@@ -125,14 +125,14 @@ class Player(Thread):
     def resume(self):
         logger.debug("Resume request acknowledged")
 
-        if canPlay() and not self.force_stopped:
+        if canPlay():
             self.VLCPlayer.set_pause(False)
             self.stopped = False
 
     def play(self, isNext=False):
         logger.debug("Play request acknowledged")
 
-        if canPlay() and not self.force_stopped:
+        if canPlay():
             isPlaying = self.VLCPlayer.is_playing()
             if isPlaying and not isNext:
                 self.communicateBack(
@@ -261,21 +261,23 @@ class Player(Thread):
 
     def seek(self, slideValue):
         logger.debug("Seek request acknowledged")
-
-        x = slideValue * round(self.get_length() / 1000) / 10000
-        self.VLCPlayer.set_time(int(x * 1000))
-        self.communicateBack(
-            {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success",
-             "info": "Sought to " + str(self.formatSeconds(x)),
-             "taskId": self.taskId})
+        if 0 >= slideValue <= 10000:
+            x = slideValue * round(self.get_length() / 1000) / 10000
+            self.VLCPlayer.set_time(int(x * 1000))
+            self.communicateBack(
+                {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success",
+                 "info": "Sought to " + str(self.formatSeconds(x)),
+                 "taskId": self.taskId})
 
     def set_volume(self, volume):
         logger.debug("Set volume request acknowledged")
-        self.VLCPlayer.audio_set_volume(volume)
-        self.communicateBack(
-            {"worker": "player", "action": "set_volume", "cookie": "rewrite", "status": "success",
-             "info": "Set volume to " + str(volume),
-             "taskId": self.taskId})
+
+        if 0 <= volume <= 100:
+            self.VLCPlayer.audio_set_volume(volume)
+            self.communicateBack(
+                {"worker": "player", "action": "set_volume", "cookie": "rewrite", "status": "success",
+                 "info": "Set volume to " + str(volume),
+                 "taskId": self.taskId})
 
     def get_volume(self):
         logger.debug("Get volume request acknowledged")
