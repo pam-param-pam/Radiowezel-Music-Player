@@ -12,13 +12,7 @@ from guard import canPlay
 pl = Player()
 
 pl.start()
-"""
-logger.basicConfig(filename="logs.txt",
-                    filemode='a',
-                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                    datefmt='%H:%M:%S',
-                    level=logger.DEBUG)
-"""
+
 logger = logging.getLogger('Main')
 logger.setLevel(logging.DEBUG)
 timeBetweenSongs = 0  # seconds
