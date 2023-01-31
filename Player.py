@@ -29,14 +29,10 @@ class Player(Thread):
         self.currentSong = None
         self.taskId = None
         self.musicPos = 0
-        self.instance = vlc.Instance()
+        self.instance = vlc.Instance("prefer-insecure")
         self.fetching = False
-        self.init()
         self.VLCPlayer = None
         self.vlc_events = None
-        self.init()
-
-    def init(self):
         self.VLCPlayer = self.instance.media_player_new()
 
         self.vlc_events = self.VLCPlayer.event_manager()
@@ -55,7 +51,7 @@ class Player(Thread):
         logger.debug("Song finished next")
 
         self.currentSong = None
-
+        self.VLCPlayer.release()
         self.play()
 
     def communicateBack(self, message, removeTaskId=True):
@@ -131,7 +127,7 @@ class Player(Thread):
 
     def play(self, isNext=False):
         logger.debug("Play request acknowledged")
-
+        self.fetching = True
         if canPlay():
             isPlaying = self.VLCPlayer.is_playing()
             if isPlaying and not isNext:
@@ -152,13 +148,18 @@ class Player(Thread):
                     if not self.queue.is_empty():
                         song = self.queue.peek(0)
                         if song:
-                            self.fetching = True
+
                             self.communicateBack(
                                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "info",
                                  "info": "Fetching...",
                                  "taskId": self.taskId})
-                            self.VLCPlayer.set_pause(True)
-                            self.init()
+
+                            self.VLCPlayer = self.instance.media_player_new()
+
+                            self.vlc_events = self.VLCPlayer.event_manager()
+                            self.vlc_events.event_attach(vlc.EventType.MediaPlayerEndReached,
+                                                         self.song_finished_callback)
+
                             video = pafy.new("https://www.youtube.com/watch?v=" + song.id)
                             best = video.getbestaudio()
 
@@ -174,7 +175,6 @@ class Player(Thread):
                             self.currentSong = song
                             while not self.VLCPlayer.is_playing:
                                 pass
-                            self.fetching = False
                             self.queue.remove_by_index(0)
                             self.notifyAboutQueueChange()
                             if isNext:
@@ -198,10 +198,15 @@ class Player(Thread):
                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "error",
                  "info": "Cannot play now",
                  "taskId": self.taskId})
+        self.fetching = False
 
     def next(self):
-
-        self.play(True)
+        x = self.seek_functionality(10000)
+        if x:
+            self.communicateBack(
+                {"worker": "player", "cookie": "rewrite", "action": "next", "status": "success",
+                 "info": "Playing next song",
+                 "taskId": self.taskId})
 
     def toggle_repeat(self):
         logger.debug("Toggle repeat request acknowledged")
@@ -259,11 +264,16 @@ class Player(Thread):
                  "info": "Nothing is playing",
                  "taskId": self.taskId})
 
-    def seek(self, slideValue):
-        logger.debug("Seek request acknowledged")
-        if 0 >= slideValue <= 10000:
+    def seek_functionality(self, slideValue):
+        if 0 <= slideValue <= 10000:
             x = slideValue * round(self.get_length() / 1000) / 10000
             self.VLCPlayer.set_time(int(x * 1000))
+            return x
+
+    def seek(self, slideValue):
+        logger.debug("Seek request acknowledged")
+        x = self.seek_functionality(slideValue)
+        if x:
             self.communicateBack(
                 {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success",
                  "info": "Sought to " + str(self.formatSeconds(x)),
@@ -331,14 +341,14 @@ class Player(Thread):
         logger.debug("Remove from queue request acknowledged")
         try:
             song = self.queue.get_by_id(videoId)
-            self.queue.remove_by_id(videoId)
+            if song:
+                self.queue.remove_by_id(videoId)
 
             self.communicateBack(
                 {"worker": "queue", "action": "remove", "cookie": "rewrite", "status": "success",
                  "info": "Removed " + song.title,
                  "taskId": self.taskId})
             self.notifyAboutQueueChange()
-
         except ValueError:
             self.communicateBack(
                 {"worker": "queue", "action": "move", "cookie": "rewrite", "status": "error", "info": "Wrong videoId",

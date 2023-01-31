@@ -4,6 +4,7 @@ from json import JSONDecodeError
 import jsonpickle
 from pytube import Search
 from pytube import YouTube
+from pytube.exceptions import RegexMatchError
 
 from Song import Song
 from exceptions import AgeRestrictedVideo, VideoTooLong
@@ -34,14 +35,19 @@ class Queue:
         self.add(s.results[0].video_id)
 
     def add(self, videoId):
-        yt = YouTube("https://www.youtube.com/watch?v=" + videoId)
-        if yt.age_restricted:
-            raise AgeRestrictedVideo()
+        try:
+            yt = YouTube("https://www.youtube.com/watch?v=" + videoId)
+            if yt.age_restricted:
+                raise AgeRestrictedVideo()
 
-        if yt.length > 600:
-            raise VideoTooLong()
-        song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
-        self.songs.append(song)
+            if yt.length > 600:
+                raise VideoTooLong()
+            song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
+            self.songs.append(song)
+
+        except RegexMatchError:
+            pass
+
 
     def getFirstId(self):
         song = self.peek(0)
