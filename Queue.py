@@ -15,8 +15,8 @@ class Queue:
     def __init__(self):
         self.songs = []
         try:
-            data = open('queue.json').read()
-            self.songs = jsonpickle.decode(data).songs
+            with open('queue.json') as f:
+                self.songs = jsonpickle.decode(f.read()).songs
             logging.debug("successfully replicated queue from json")
 
         except JSONDecodeError:
@@ -47,7 +47,6 @@ class Queue:
 
         except RegexMatchError:
             pass
-
 
     def getFirstId(self):
         song = self.peek(0)

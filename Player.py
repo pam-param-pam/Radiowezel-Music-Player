@@ -164,7 +164,7 @@ class Player(Thread):
                             best = video.getbestaudio()
 
                             url = best.url
-
+                            print(url)
                             media = self.instance.media_new(url)
 
                             media.get_mrl()

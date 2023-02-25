@@ -197,7 +197,6 @@ sp.start()
 
 pl.add_to_queue('aatr_2MstrI')
 
-
 while True:
     time.sleep(10)
     logger.debug("10 seconds passed")
