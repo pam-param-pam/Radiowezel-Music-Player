@@ -10,7 +10,7 @@ from spotipy import SpotifyClientCredentials, SpotifyException
 from websocket import WebSocketConnectionClosedException
 import vlc
 import guard
-from Queue import Queue
+from SongsQueue import SongsQueue
 from exceptions import AgeRestrictedVideo, VideoTooLong
 from guard import canPlay
 
@@ -25,7 +25,7 @@ class Player(Thread):
         self.force_stopped = False
         self.comms = None
         self.stopped = False
-        self.queue = Queue()
+        self.queue = SongsQueue()
         self.currentSong = None
         self.taskId = None
         self.musicPos = 0
@@ -51,16 +51,14 @@ class Player(Thread):
         logger.debug("Song finished next")
 
         self.currentSong = None
-        self.VLCPlayer.release()
-        self.play()
 
     def communicateBack(self, message, removeTaskId=True):
-
         try:
-            self.comms.send(json.dumps(message))
-            # if removeTaskId:
-            #   self.taskId = None
-            logger.debug("Sent back \n " + str(message))
+            if self.comms:
+                self.comms.send(json.dumps(message))
+            else:
+                logger.fatal("Comms is None")
+            logger.debug("Sent back %s", message)
         except WebSocketConnectionClosedException:
             if guard.isInternet():
                 logger.warning("Socket is closed, cannot communicate back")
@@ -76,7 +74,7 @@ class Player(Thread):
             sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
             self.communicateBack(
                 {"worker": "player", "action": "spotify", "cookie": "rewrite", "status": "info", "info": "Fetching...",
-                 "taskId": self.taskId}, False)
+                 "taskId": self.taskId})
             total = sp.playlist_items(playlistId)["total"]
             for track in sp.playlist_items(playlistId)["items"]:
                 name = track["track"]["name"]
@@ -97,14 +95,14 @@ class Player(Thread):
 
                 self.communicateBack(
                     {"worker": "player", "action": "spotify", "cookie": "rewrite", "status": "success",
-                     "info": f"Added " + name + "\nLeft " + str(total),
-                     "taskId": self.taskId}, False)
+                     "info": "Added " + name + "\nLeft " + str(total),
+                     "taskId": self.taskId})
                 self.notifyAboutQueueChange()
         except SpotifyException:
             self.communicateBack(
                 {"worker": "player", "action": "spotify", "cookie": "rewrite", "status": "error",
-                 "info": f"Playlist Id is wrong!",
-                 "taskId": self.taskId}, False)
+                 "info": "Playlist Id is wrong!",
+                 "taskId": self.taskId})
 
     def formatSeconds(self, time):
         minutes = int(time / 60)
@@ -153,26 +151,23 @@ class Player(Thread):
                                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "info",
                                  "info": "Fetching...",
                                  "taskId": self.taskId})
-
-                            self.VLCPlayer = self.instance.media_player_new()
-
-                            self.vlc_events = self.VLCPlayer.event_manager()
-                            self.vlc_events.event_attach(vlc.EventType.MediaPlayerEndReached,
-                                                         self.song_finished_callback)
-
+                            print(1)
                             video = pafy.new("https://www.youtube.com/watch?v=" + song.id)
+                            print(2)
                             best = video.getbestaudio()
-
+                            print(3)
                             url = best.url
-                            print(url)
+                            print(4)
                             media = self.instance.media_new(url)
-
+                            print(5)
                             media.get_mrl()
-
+                            print(6)
                             self.VLCPlayer.set_media(media)
-
+                            print(7)
                             self.VLCPlayer.play()
+                            print(8)
                             self.currentSong = song
+
                             while not self.VLCPlayer.is_playing:
                                 pass
                             self.queue.remove_by_index(0)
@@ -201,12 +196,7 @@ class Player(Thread):
         self.fetching = False
 
     def next(self):
-        x = self.seek_functionality(10000)
-        if x:
-            self.communicateBack(
-                {"worker": "player", "cookie": "rewrite", "action": "next", "status": "success",
-                 "info": "Playing next song",
-                 "taskId": self.taskId})
+        self.play(True)
 
     def toggle_repeat(self):
         logger.debug("Toggle repeat request acknowledged")
@@ -226,8 +216,7 @@ class Player(Thread):
         if self.VLCPlayer.is_playing():
             self.communicateBack(
                 {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "info", "info": "Pausing...",
-                 "taskId": self.taskId},
-                False)
+                 "taskId": self.taskId})
 
             volume = self.VLCPlayer.audio_get_volume()
 
@@ -269,6 +258,7 @@ class Player(Thread):
             x = slideValue * round(self.get_length() / 1000) / 10000
             self.VLCPlayer.set_time(int(x * 1000))
             return x
+        return 0
 
     def seek(self, slideValue):
         logger.debug("Seek request acknowledged")
@@ -327,15 +317,20 @@ class Player(Thread):
         logger.debug("Notify about queue change request acknowledged")
 
         jsonString = jsonpickle.encode(self.queue)
+        try:
+            with open('queue.json', 'w') as f:
+                f.write(jsonString)
+                logger.debug("wrote %s", jsonString)
 
-        with open('queue.json', 'w') as f:
-            f.write(jsonString)
-            logger.debug("wrote " + jsonString)
+        except FileNotFoundError:
+            logging.warning("No such file or directory: 'queue.json'")
+        except PermissionError:
+            logging.warning("Permission denied: 'queue.json'")
 
         json_str = [ob.__dict__ for ob in self.queue.songs]
         var = {"taskId": 100_000, "status": "success", "info": "all working fine", "queue": json_str}
 
-        self.communicateBack(var, False)
+        self.communicateBack(var)
 
     def remove_from_queue(self, videoId):
         logger.debug("Remove from queue request acknowledged")

@@ -10,19 +10,21 @@ from Song import Song
 from exceptions import AgeRestrictedVideo, VideoTooLong
 
 
-class Queue:
+class SongsQueue:
 
     def __init__(self):
         self.songs = []
         try:
-            with open('queue.json') as f:
-                self.songs = jsonpickle.decode(f.read()).songs
+            f = open('queue.json')
+            self.songs = jsonpickle.decode(f.read()).songs
             logging.debug("successfully replicated queue from json")
 
         except JSONDecodeError:
             logging.warning("queue.json JSONDecodeError possibly empty file")
         except FileNotFoundError:
             logging.warning("No such file or directory: 'queue.json'")
+        except PermissionError:
+            logging.warning("Permission denied: 'queue.json'")
 
     def __str__(self):
         return str(self.songs)
@@ -37,11 +39,15 @@ class Queue:
     def add(self, videoId):
         try:
             yt = YouTube("https://www.youtube.com/watch?v=" + videoId)
-            if yt.age_restricted:
-                raise AgeRestrictedVideo()
+            try:
+                if yt.age_restricted:
+                    raise AgeRestrictedVideo()
 
-            if yt.length > 600:
-                raise VideoTooLong()
+                if yt.length > 600:
+                    raise VideoTooLong()
+            except TypeError:
+                logging.warning("TypeError int(self.vid_info.get('videoDetails', {}).get('lengthSeconds'))")
+
             song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
             self.songs.append(song)
 
@@ -49,16 +55,10 @@ class Queue:
             pass
 
     def getFirstId(self):
-        song = self.peek(0)
-        if song:
-            return song.id
-        else:
-            return None
+        return self.peek(0).id
 
     def remove_by_index(self, index):
-        if index < 0 or index >= len(self.songs):
-            return None
-        else:
+        if index > 0 or index <= len(self.songs):
             self.songs.pop(index)
 
     def remove_by_id(self, videoId):
@@ -71,6 +71,7 @@ class Queue:
         for song in self.songs:
             if song.id == videoId:
                 return song
+
 
     def size(self):
         return len(self.songs)
@@ -92,10 +93,13 @@ class Queue:
 
     def restore(self, videoId, position):
         yt = YouTube("https://www.youtube.com/watch?v=" + videoId)
-        if yt.age_restricted:
-            raise AgeRestrictedVideo()
+        try:
+            if yt.age_restricted:
+                raise AgeRestrictedVideo()
 
-        if yt.length > 600:
-            raise VideoTooLong()
+            if yt.length > 600:
+                raise VideoTooLong()
+        except TypeError:
+            logging.warning("TypeError int(self.vid_info.get('videoDetails', {}).get('lengthSeconds'))")
         song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
         self.songs.insert(position, song)

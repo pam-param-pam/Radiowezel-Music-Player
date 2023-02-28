@@ -116,7 +116,7 @@ def process_message(message):
 
 def on_message(webSocket, message):
     def run(*args):
-        logger.info("Got a message: " + message)
+        logger.info("Got a message: %s", message)
         process_message(message)
 
     threading.Thread(target=run).start()
@@ -127,7 +127,7 @@ def on_ping(webSocket, message):
 
 
 def on_pong(webSocket, message):
-    logger.debug("Got a pong: " + message + ". No need to respond")
+    logger.debug("Got a pong: %s. No need to respond", message)
 
 
 def on_open(webSocket):
@@ -139,7 +139,7 @@ def on_close(webSocket, status_code, reason):
 
 
 def on_error(webSocket, error):
-    logger.error("Error happened in ws:\n" + str(error))
+    logger.error("Error happened in ws: %s", error)
 
 
 ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
@@ -177,7 +177,7 @@ def send_pos():
                      "length": "00:00", "seconds": "00:00"}, False)
 
         except Exception as e:
-            logger.error("Error happened in send_pos:\n" + str(e))
+            logger.error("Error happened in send_pos:\n %s", str(e))
         time.sleep(1)
 
 
