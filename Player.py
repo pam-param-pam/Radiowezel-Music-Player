@@ -10,6 +10,7 @@ from spotipy import SpotifyClientCredentials, SpotifyException
 from websocket import WebSocketConnectionClosedException
 import vlc
 import guard
+from Song import Song
 from SongsQueue import SongsQueue
 from exceptions import AgeRestrictedVideo, VideoTooLong
 from guard import canPlay
@@ -402,3 +403,17 @@ class Player(Thread):
                 {"worker": "queue", "action": "restore", "cookie": "rewrite", "status": "warning",
                  "info": "Video too long",
                  "taskId": self.taskId})
+
+    def dingDong(self):
+        self.stopped = True
+        media = self.instance.media_new("assets/ding-dong.mp3")
+        media.get_mrl()
+        self.VLCPlayer.set_media(media)
+        self.VLCPlayer.play()
+        time.sleep(4)
+        media = self.instance.media_new("assets/alejajestempomocny.mp3")
+        media.get_mrl()
+        self.VLCPlayer.set_media(media)
+        self.VLCPlayer.play()
+        self.stopped = False
+        self.currentSong = None

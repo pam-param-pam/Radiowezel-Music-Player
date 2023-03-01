@@ -147,7 +147,6 @@ ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_messag
                             on_error=on_error,
                             on_open=on_open, header={"token": 'UlhkaFEzcGhhbXR2ZDNOcllRPT0==='})
 
-
 def send_pos():
     a = 0
     while True:
