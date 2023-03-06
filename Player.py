@@ -264,11 +264,11 @@ class Player(Thread):
     def seek(self, slideValue):
         logger.debug("Seek request acknowledged")
         x = self.seek_functionality(slideValue)
-        if x:
-            self.communicateBack(
-                {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success",
-                 "info": "Sought to " + str(self.formatSeconds(x)),
-                 "taskId": self.taskId})
+
+        self.communicateBack(
+            {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success",
+             "info": "Sought to " + str(self.formatSeconds(x)),
+             "taskId": self.taskId})
 
     def set_volume(self, volume):
         logger.debug("Set volume request acknowledged")
@@ -403,17 +403,3 @@ class Player(Thread):
                 {"worker": "queue", "action": "restore", "cookie": "rewrite", "status": "warning",
                  "info": "Video too long",
                  "taskId": self.taskId})
-
-    def dingDong(self):
-        self.stopped = True
-        media = self.instance.media_new("assets/ding-dong.mp3")
-        media.get_mrl()
-        self.VLCPlayer.set_media(media)
-        self.VLCPlayer.play()
-        time.sleep(4)
-        media = self.instance.media_new("assets/alejajestempomocny.mp3")
-        media.get_mrl()
-        self.VLCPlayer.set_media(media)
-        self.VLCPlayer.play()
-        self.stopped = False
-        self.currentSong = None

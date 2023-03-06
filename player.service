@@ -26,8 +26,6 @@ WorkingDirectory=/home/pi/music-player
 EnvironmentFile=/etc/systemd/system/music-player.env
 
 # Command to run the application
-ExecStartPre=/bin/sleep 30
-
 ExecStart=python3 idk.py
 
 
