@@ -115,11 +115,9 @@ def process_message(message):
 
 
 def on_message(webSocket, message):
-    def run(*args):
-        logger.info("Got a message: %s", message)
-        process_message(message)
 
-    threading.Thread(target=run).start()
+    process_message(message)
+
 
 
 def on_ping(webSocket, message):
@@ -186,12 +184,12 @@ def run_for_eternity():
         reconnect=5)  # Set dispatcher to automatic reconnection, 5 second reconnect delay if connection closed unexpectedly
 
 
-wst = threading.Thread(target=run_for_eternity)
+wst = threading.Thread(target=run_for_eternity, name='websocket')
 wst.start()
 
 time.sleep(1)
 
-sp = threading.Thread(target=send_pos)
+sp = threading.Thread(target=send_pos, name='send position')
 sp.start()
 
 pl.add_to_queue('aatr_2MstrI')
