@@ -30,22 +30,27 @@ def process_message(message):
             if action == "play":
                 logger.debug("Matched player play")
                 pl.play()
+                calculate_pos(True)
                 pl.taskId = None
             elif action == "stop":
                 logger.debug("Matched player stop")
                 pl.stop()
+                calculate_pos(True)
                 pl.taskId = None
             elif action == "pause":
                 logger.debug("Matched player pause")
                 pl.pause()
+                calculate_pos(True)
                 pl.taskId = None
             elif action == "smooth_pause":
                 logger.debug("Matched player pause")
                 pl.pauseFadeout()
+                calculate_pos(True)
                 pl.taskId = None
             elif action == "resume":
                 logger.debug("Matched player resume")
                 pl.play()
+                calculate_pos(True)
                 pl.taskId = None
             elif action == "seek":
                 logger.debug("Matched player seek")
@@ -54,6 +59,7 @@ def process_message(message):
             elif action == "next":
                 logger.debug("Matched player next")
                 pl.next()
+                calculate_pos(True)
                 pl.taskId = None
             elif action == "set_volume":
                 logger.debug("Matched player set volume")
@@ -74,6 +80,9 @@ def process_message(message):
             elif action == "ding-dong":
                 logger.debug("Matched player ding-dong")
                 pl.dingDong()
+                pl.taskId = None
+            elif action == "get_pos":
+                calculate_pos(True)
                 pl.taskId = None
             else:
                 logger.warning("None matched")
@@ -115,9 +124,7 @@ def process_message(message):
 
 
 def on_message(webSocket, message):
-
     process_message(message)
-
 
 
 def on_ping(webSocket, message):
@@ -145,34 +152,38 @@ ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_messag
                             on_error=on_error,
                             on_open=on_open, header={"token": 'UlhkaFEzcGhhbXR2ZDNOcllRPT0==='})
 
+
+def calculate_pos(flag=False):
+    length = pl.get_length()
+    if pl.currentSong and length:
+
+        FormattedPos = pl.formatSeconds(round(pl.VLCPlayer.get_time() / 1000))
+        FormattedLength = pl.formatSeconds(length / 1000)
+        b = round((pl.VLCPlayer.get_time() * 10000) / length)
+        if pl.VLCPlayer.is_playing():
+
+            pl.communicateBack(
+                {"worker": "player", "pos": b, "title": pl.currentSong.title, "taskId": 100_000,
+                 "length": FormattedLength, "seconds": FormattedPos}, False)
+
+        else:
+            if pl.stopped or pl.force_stopped:
+                if flag:
+                    pl.communicateBack(
+                        {"worker": "player", "pos": b, "title": "Stopped(" + pl.currentSong.title + ")", "taskId": 100_000,
+                         "length": FormattedLength, "seconds": FormattedPos}, False)
+
+    else:
+        if flag:
+            pl.communicateBack(
+                {"worker": "player", "pos": 0, "title": "Nothing is playing", "taskId": 100_000,
+                 "length": "00:00", "seconds": "00:00"}, False)
+
+
 def send_pos():
-    a = 0
     while True:
         try:
-            length = pl.get_length()
-            if pl.currentSong and length:
-
-                FormattedPos = pl.formatSeconds(round(pl.VLCPlayer.get_time() / 1000))
-                FormattedLength = pl.formatSeconds(length / 1000)
-                b = round((pl.VLCPlayer.get_time() * 10000) / length)
-                if pl.VLCPlayer.is_playing():
-
-                    if a != b:
-                        pl.communicateBack(
-                            {"worker": "player", "pos": b, "title": pl.currentSong.title, "taskId": 100_000,
-                             "length": FormattedLength, "seconds": FormattedPos}, False)
-                        a = b
-                else:
-                    if pl.stopped or pl.force_stopped:
-                        pl.communicateBack(
-                            {"worker": "player", "pos": b, "title": "Stopped(" + pl.currentSong.title + ")",
-                             "taskId": 100_000,
-                             "length": FormattedLength, "seconds": FormattedPos}, False)
-            else:
-                pl.communicateBack(
-                    {"worker": "player", "pos": 0, "title": "Nothing is playing", "taskId": 100_000,
-                     "length": "00:00", "seconds": "00:00"}, False)
-
+            calculate_pos()
         except Exception as e:
             logger.error("Error happened in send_pos:\n %s", str(e))
         time.sleep(1)
@@ -191,8 +202,6 @@ time.sleep(1)
 
 sp = threading.Thread(target=send_pos, name='send position')
 sp.start()
-
-pl.add_to_queue('aatr_2MstrI')
 
 while True:
     time.sleep(10)
