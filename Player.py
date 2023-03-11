@@ -52,6 +52,7 @@ class Player(Thread):
         logger.debug("Song finished next")
 
         self.currentSong = None
+        self.calculate_pos(True)
 
     def communicateBack(self, message, removeTaskId=True):
         try:
@@ -152,21 +153,13 @@ class Player(Thread):
                                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "info",
                                  "info": "Fetching...",
                                  "taskId": self.taskId})
-                            print(1)
                             video = pafy.new("https://www.youtube.com/watch?v=" + song.id)
-                            print(2)
                             best = video.getbestaudio()
-                            print(3)
                             url = best.url
-                            print(4)
                             media = self.instance.media_new(url)
-                            print(5)
                             media.get_mrl()
-                            print(6)
                             self.VLCPlayer.set_media(media)
-                            print(7)
                             self.VLCPlayer.play()
-                            print(8)
                             self.currentSong = song
 
                             while not self.VLCPlayer.is_playing:
@@ -403,3 +396,31 @@ class Player(Thread):
                 {"worker": "queue", "action": "restore", "cookie": "rewrite", "status": "warning",
                  "info": "Video too long",
                  "taskId": self.taskId})
+
+    def calculate_pos(self, flag=False):
+        length = self.get_length()
+        if self.currentSong and length:
+
+            FormattedPos = self.formatSeconds(round(self.VLCPlayer.get_time() / 1000))
+            FormattedLength = self.formatSeconds(length / 1000)
+            b = round((self.VLCPlayer.get_time() * 10000) / length)
+            if self.VLCPlayer.is_playing():
+
+                self.communicateBack(
+                    {"worker": "player", "pos": b, "title": self.currentSong.title, "taskId": 100_000,
+                     "length": FormattedLength, "seconds": FormattedPos}, False)
+
+            else:
+                if self.stopped or self.force_stopped:
+                    if flag:
+                        self.communicateBack(
+                            {"worker": "player", "pos": b, "title": "Stopped(" + self.currentSong.title + ")",
+                             "taskId": 100_000,
+                             "length": FormattedLength, "seconds": FormattedPos}, False)
+
+        else:
+            if flag:
+                self.communicateBack(
+                    {"worker": "player", "pos": 0, "title": "Nothing is playing", "taskId": 100_000,
+                     "length": "00:00", "seconds": "00:00"}, False)
+

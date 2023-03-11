@@ -45,11 +45,12 @@ class SongsQueue:
 
                 if yt.length > 600:
                     raise VideoTooLong()
+
+                song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
+                self.songs.append(song)
             except TypeError:
                 logging.warning("TypeError int(self.vid_info.get('videoDetails', {}).get('lengthSeconds'))")
-
-            song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
-            self.songs.append(song)
+                self.add(videoId)
 
         except RegexMatchError:
             pass
@@ -71,7 +72,6 @@ class SongsQueue:
         for song in self.songs:
             if song.id == videoId:
                 return song
-
 
     def size(self):
         return len(self.songs)
@@ -99,7 +99,8 @@ class SongsQueue:
 
             if yt.length > 600:
                 raise VideoTooLong()
+            song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
+            self.songs.insert(position, song)
         except TypeError:
             logging.warning("TypeError int(self.vid_info.get('videoDetails', {}).get('lengthSeconds'))")
-        song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
-        self.songs.insert(position, song)
+            self.restore(videoId, position)
