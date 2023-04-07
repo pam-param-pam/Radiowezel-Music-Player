@@ -73,6 +73,12 @@ class SongsQueue:
                 self.songs.remove(song)
                 break
 
+    def name_remove(self, name):
+        for song in self.songs:
+            if song.title == name:
+                self.songs.remove(song)
+                break
+
     def get_by_id(self, videoId):
         for song in self.songs:
             if song.id == videoId:
@@ -82,9 +88,10 @@ class SongsQueue:
         return len(self.songs)
 
     def peek(self, index):
-        if index < 0 or index >= len(self.songs):
+        try:
+            return self.songs[index]
+        except IndexError:
             return None
-        return self.songs[index]
 
     def move(self, start, end):
         if start < 0 or start >= len(self.songs) or end < 0 or end >= len(self.songs):
@@ -118,10 +125,8 @@ class SongsQueue:
 
         except TypeError as e:
             logging.critical(str(e) + "\nRETRYING...")
-            self.add(videoId)
+            self.restore(videoId, position)
 
         except PytubeError as e:
             logging.critical(str(e) + "\nRETRYING...")
-            self.add(videoId)
-
-
+            self.restore(videoId, position)

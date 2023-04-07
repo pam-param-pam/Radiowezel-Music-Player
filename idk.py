@@ -4,6 +4,9 @@ import threading
 import time
 
 import websocket
+from prompt_toolkit import print_formatted_text, PromptSession
+from prompt_toolkit.lexers import PygmentsLexer
+from pygments.lexers.html import HtmlLexer
 
 from Player import Player
 from guard import canPlay
@@ -15,6 +18,10 @@ pl.start()
 logger = logging.getLogger('Main')
 logger.setLevel(logging.INFO)
 timeBetweenSongs = 0  # seconds
+
+
+def get_queue():
+    return pl.queue
 
 
 def process_message(message):
@@ -200,6 +207,89 @@ def run_for_eternity():
         reconnect=5)  # Set dispatcher to automatic reconnection, 5 second reconnect delay if connection closed unexpectedly
 
 
+def wait_for_input():
+    while True:
+        try:
+            a = input()
+            list = a.split(" ")
+            arg = list[0].lower()
+            if arg == "add":
+                try:
+                    list.pop(0)
+                    name = ' '.join(list)
+                    pl.queue.name_add(name)
+                    print("Added " + str(pl.queue.peek(-1)))
+                except IndexError:
+                    print("no NAME specified")
+
+            elif arg in ("rem", "remove"):
+                try:
+                    song = pl.queue.peek(int(list[1]))
+                    pl.queue.remove_by_index(int(list[1]))
+                    print("Removed " + str(song))
+                except (TypeError, ValueError):
+                    list.pop(0)
+                    name = ' '.join(list)
+                    pl.queue.name_remove(name)
+                    print("Removed " + name)
+                except IndexError:
+                    print("no NAME specified")
+            elif arg == "volume":
+                try:
+                    pl.set_volume(int(list[1]))
+                    print("Set volume to: " + list[1])
+                except (TypeError, ValueError):
+                    print("VOLUME must be an int")
+
+                except IndexError:
+                    print(pl.VLCPlayer.audio_get_volume())
+            elif arg == "seek":
+                try:
+                    pos = int(list[1])
+                    pl.VLCPlayer.set_time(int(pos * 1000))
+
+                except (TypeError, ValueError):
+                    print("TIME must be an int")
+                except IndexError:
+                    print("no TIME specified")
+            elif arg == "queue":
+                if pl.queue.is_empty():
+                    print("Queue is empty")
+                else:
+                    for i, song in enumerate(pl.queue.songs):
+                        print(str(i) + ">> " + str(song))
+
+            elif arg == "stop":
+                pl.pause()
+                print("Stopped")
+            elif arg == "pause":
+                pl.pauseFadeout()
+                print("Paused")
+            elif arg == "play":
+                pl.play()
+                print("Playing...")
+            elif arg == "next":
+                pl.play(True)
+                print("Playing next song...")
+            elif arg == "repeat":
+                pl.repeat = not pl.repeat
+                print("Toggled")
+            elif arg == "info":
+                state = "Unknown..."
+                if pl.stopped:
+                    state = "stopped..."
+                if pl.force_stopped:
+                    state = "force stopped"
+                if pl.VLCPlayer.is_playing():
+                    state = "Playing..."
+                FormattedPos = pl.formatSeconds(round(pl.VLCPlayer.get_time() / 1000))
+                print("Current song: " + str(pl.currentSong) + "\nPosition: " + FormattedPos + "\nState: " + state)
+            else:
+                print("COMMAND NOT FOUND")
+        except Exception as e:
+            logger.warning("Error happened in wait for input:\n %s", str(e))
+
+
 wst = threading.Thread(target=run_for_eternity, name='websocket')
 wst.start()
 
@@ -207,6 +297,9 @@ time.sleep(1)
 
 sp = threading.Thread(target=send_pos, name='send position')
 sp.start()
+
+wfi = threading.Thread(target=wait_for_input, name='interactive input')
+wfi.start()
 
 while True:
     try:

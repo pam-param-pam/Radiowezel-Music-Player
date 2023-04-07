@@ -1,9 +1,11 @@
 websocket-client==1.4.2
 pygame==2.1.2
 pytz==2022.6
-pytube==12.1.0
+pytube==12.1.3
 spotipy==2.22.0
 jsonpickle==3.0.1
 yt-dlp==2023.2.17
 pafy==0.5.5
 python-vlc==3.0.18121
+Pygments==2.14.0
+prompt-toolkit==3.0.38

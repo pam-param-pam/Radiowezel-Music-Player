@@ -2,3 +2,4 @@
 /.env
 /queue.json
 /logs.txt
+test.py

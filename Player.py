@@ -80,9 +80,10 @@ class Player(Thread):
             total = sp.playlist_items(playlistId)["total"]
             for track in sp.playlist_items(playlistId)["items"]:
                 name = track["track"]["name"]
+                artist = track["track"]["artists"]["name"]
                 total -= 1
                 try:
-                    self.queue.name_add(name)
+                    self.queue.name_add(name + " " + artist)
                 except AgeRestrictedVideo:
                     self.communicateBack(
                         {"worker": "queue", "action": "spotify", "cookie": "rewrite", "status": "warning",
@@ -275,14 +276,15 @@ class Player(Thread):
 
     def set_volume(self, volume):
         logger.debug("Set volume request acknowledged")
-
-        if 0 <= volume <= 100:
-            self.VLCPlayer.audio_set_volume(volume)
-            self.communicateBack(
-                {"worker": "player", "action": "set_volume", "cookie": "rewrite", "status": "success",
-                 "info": "Set volume to " + str(volume),
-                 "taskId": self.taskId})
-
+        try:
+            if 0 <= volume <= 100:
+                self.VLCPlayer.audio_set_volume(volume)
+                self.communicateBack(
+                    {"worker": "player", "action": "set_volume", "cookie": "rewrite", "status": "success",
+                     "info": "Set volume to " + str(volume),
+                     "taskId": self.taskId})
+        except TypeError:
+            pass
     def get_volume(self):
         logger.debug("Get volume request acknowledged")
         self.communicateBack(
