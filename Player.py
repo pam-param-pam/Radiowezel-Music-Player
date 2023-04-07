@@ -353,6 +353,25 @@ class Player(Thread):
                 {"worker": "queue", "action": "move", "cookie": "rewrite", "status": "error", "info": "Wrong videoId",
                  "taskId": self.taskId})
 
+    def move_by_id_in_queue(self, videoId, position):
+        logger.debug("Move by id in queue  request acknowledged")
+        try:
+            self.queue.move_by_id(videoId, position)
+            self.communicateBack(
+                {"worker": "queue", "action": "move", "cookie": "rewrite", "status": "success", "info": "Moved",
+                 "taskId": self.taskId})
+            self.notifyAboutQueueChange()
+        except KeyError:
+            pass
+        except TypeError:
+            self.communicateBack(
+                {"worker": "queue", "action": "move", "cookie": "rewrite", "status": "error", "info": "Type Error",
+                 "taskId": self.taskId})
+        except ValueError:
+            self.communicateBack(
+                {"worker": "queue", "action": "move", "cookie": "rewrite", "status": "error",
+                 "info": "List index out of range"})
+
     def move_in_queue(self, starting_i, ending_i):
 
         logger.debug("Move in queue request acknowledged")

@@ -104,6 +104,10 @@ def process_message(message):
             logger.debug("Matched queue move")
             pl.move_in_queue(jMessage["extras"]["starting_i"], jMessage["extras"]["ending_i"])
             pl.taskId = None
+        elif action == "move_by_id":
+            logger.debug("Matched queue move by id")
+            pl.move_by_id_in_queue(jMessage["extras"]["videoId"], jMessage["extras"]["position"])
+            pl.taskId = None
         elif action == "empty":
             logger.debug("Matched queue empty")
             pl.empty_queue()

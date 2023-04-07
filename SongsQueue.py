@@ -84,14 +84,23 @@ class SongsQueue:
     def peek(self, index):
         if index < 0 or index >= len(self.songs):
             return None
-        else:
-            return self.songs[index]
+        return self.songs[index]
 
     def move(self, start, end):
         if start < 0 or start >= len(self.songs) or end < 0 or end >= len(self.songs):
             raise ValueError
-        else:
-            self.songs.insert(end, self.songs.pop(start))
+        self.songs.insert(end, self.songs.pop(start))
+
+    def move_by_id(self, videoId, position):
+        if position > len(self.songs) or position < 0:
+            raise ValueError
+        song = self.get_by_id(videoId)
+        curPos = self.songs.index(song)
+        if curPos == position:
+            raise KeyError
+        if song:
+            self.songs.remove(song)
+            self.songs.insert(position, song)
 
     def empty(self):
         self.songs = []
