@@ -205,21 +205,28 @@ sp = threading.Thread(target=send_pos, name='send position')
 sp.start()
 
 while True:
-    time.sleep(10)
-    logger.debug("10 seconds passed")
+    try:
+        time.sleep(10)
+        logger.debug("10 seconds passed")
 
-    if not canPlay() and not pl.force_stopped:
-        logger.info("Break is over! Stopping music...")
-        pl.pauseFadeout()
-        pl.force_stopped = True
+        if not canPlay() and not pl.force_stopped:
+            logger.info("Break is over! Stopping music...")
+            pl.pauseFadeout(False)
+            pl.force_stopped = True
 
-    if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing() and not pl.fetching:
-        if pl.queue.is_empty():
-            logger.debug("Break started! No music to start")
-        elif pl.repeat and not pl.force_stopped:
-            logger.info("Repeating music")
-            pl.play()
-        else:
-            logger.info("Break started! Starting music")
-            pl.force_stopped = False
-            pl.play()
+        if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing() and not pl.fetching:
+            if pl.queue.is_empty():
+                logger.debug("No music to start")
+            elif pl.repeat and not pl.force_stopped:
+                logger.debug("Repeating music")
+                pl.play()
+            elif not pl.repeat and not pl.force_stopped:
+                logger.debug("Playing next song")
+                pl.play()
+            else:
+                logger.info("Break started! Starting music...")
+                pl.force_stopped = False
+                pl.play()
+    except Exception as e:
+        logger.error("Error happened in while TRUE:\n %s", str(e))
+        pl.fetching = False

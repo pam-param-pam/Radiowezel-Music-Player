@@ -19,6 +19,7 @@ def isWorkweekNow():
 
 
 def isBreakNow():
+    return True
     then = datetime.datetime.now(pytz.utc)
     nowTime = then.astimezone(pytz.timezone("Europe/Warsaw")).time()
 
@@ -51,8 +52,6 @@ def canPlay():
     #print("isBreakNow: " + str(isBreakNow()))
     #print("isInternet: " + str(isInternet()))
     #print("isWorkweekNow(): " + str(isWorkweekNow()))
-    #return True
-    if isBreakNow() and isInternet() and isWorkweekNow():
-        return True
-    else:
-        return False
+
+    return bool(isBreakNow() and isInternet() and isWorkweekNow())
+

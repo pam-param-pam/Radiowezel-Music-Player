@@ -214,7 +214,7 @@ class Player(Thread):
 
         self.VLCPlayer.set_time(0)
 
-    def pauseFadeout(self):
+    def pauseFadeout(self, pause=True):
         logger.debug("Pause fadeout request acknowledged")
         if self.VLCPlayer.is_playing():
             self.communicateBack(
@@ -228,7 +228,8 @@ class Player(Thread):
                 time.sleep(0.03)
 
             self.VLCPlayer.set_pause(True)
-            self.stopped = True
+            if pause:
+                self.stopped = True
             self.VLCPlayer.audio_set_volume(volume)
             self.communicateBack(
                 {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success", "info": "Paused",
