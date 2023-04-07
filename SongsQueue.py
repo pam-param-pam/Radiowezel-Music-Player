@@ -1,10 +1,10 @@
 import logging
 from json import JSONDecodeError
-
+import os
 import jsonpickle
 from pytube import Search
 from pytube import YouTube
-from pytube.exceptions import RegexMatchError
+from pytube.exceptions import RegexMatchError, PytubeError
 
 from Song import Song
 from exceptions import AgeRestrictedVideo, VideoTooLong
@@ -15,7 +15,7 @@ class SongsQueue:
     def __init__(self):
         self.songs = []
         try:
-            f = open('queue.json')
+            f = open(os.getcwd() + '/queue.json')
             self.songs = jsonpickle.decode(f.read()).songs
             logging.debug("successfully replicated queue from json")
 
@@ -48,8 +48,13 @@ class SongsQueue:
 
                 song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
                 self.songs.append(song)
-            except TypeError:
-                logging.warning("TypeError int(self.vid_info.get('videoDetails', {}).get('lengthSeconds'))")
+
+            except TypeError as e:
+                logging.critical(str(e) + "\nRETRYING...")
+                self.add(videoId)
+
+            except PytubeError as e:
+                logging.critical(str(e) + "\nRETRYING...")
                 self.add(videoId)
 
         except RegexMatchError:
@@ -101,6 +106,13 @@ class SongsQueue:
                 raise VideoTooLong()
             song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
             self.songs.insert(position, song)
-        except TypeError:
-            logging.warning("TypeError int(self.vid_info.get('videoDetails', {}).get('lengthSeconds'))")
-            self.restore(videoId, position)
+
+        except TypeError as e:
+            logging.critical(str(e) + "\nRETRYING...")
+            self.add(videoId)
+
+        except PytubeError as e:
+            logging.critical(str(e) + "\nRETRYING...")
+            self.add(videoId)
+
+

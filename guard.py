@@ -14,7 +14,8 @@ def isNowInTimePeriod(startTime, endTime, nowTime):
 
 
 def isWorkweekNow():
-    return str(datetime.datetime.today().weekday()) in "12345"
+    #print(str(datetime.datetime.today().weekday()))
+    return str(datetime.datetime.today().weekday()) in "01234"
 
 
 def isBreakNow():
@@ -47,7 +48,10 @@ def isInternet(host="8.8.8.8", port=53, timeout=3):
 
 
 def canPlay():
-    return True
+    #print("isBreakNow: " + str(isBreakNow()))
+    #print("isInternet: " + str(isInternet()))
+    #print("isWorkweekNow(): " + str(isWorkweekNow()))
+    #return True
     if isBreakNow() and isInternet() and isWorkweekNow():
         return True
     else:

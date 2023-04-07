@@ -3,14 +3,15 @@ import logging
 import os
 import time
 from threading import Thread
+
 import jsonpickle
 import pafy
 import spotipy
+import vlc
 from spotipy import SpotifyClientCredentials, SpotifyException
 from websocket import WebSocketConnectionClosedException
-import vlc
+
 import guard
-from Song import Song
 from SongsQueue import SongsQueue
 from exceptions import AgeRestrictedVideo, VideoTooLong
 from guard import canPlay
@@ -52,7 +53,6 @@ class Player(Thread):
         logger.debug("Song finished next")
 
         self.currentSong = None
-        self.calculate_pos(True)
 
     def communicateBack(self, message, removeTaskId=True):
         try:
@@ -68,8 +68,8 @@ class Player(Thread):
                 logger.debug("Socket is closed due to no internet")
 
     def fetch_songs_from_playlist(self, playlistId):
-        client_secret = os.environ['SPOTIFY_SECRET']
-        client_id = os.environ['SPOTIFY_ID']
+        client_secret = "3240593b7dbc4a40b351b5e61aca2322"
+        client_id = "a64b981256e14d09a2cfa51f631b20d7"
         try:
 
             client_credentials_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
@@ -153,13 +153,22 @@ class Player(Thread):
                                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "info",
                                  "info": "Fetching...",
                                  "taskId": self.taskId})
+                            logger.debug("1 in player")
                             video = pafy.new("https://www.youtube.com/watch?v=" + song.id)
+                            logger.debug("2 in player")
                             best = video.getbestaudio()
+                            logger.debug("3 in player")
                             url = best.url
+                            logger.debug("4 in player")
                             media = self.instance.media_new(url)
+                            logger.debug("5 in player")
                             media.get_mrl()
+                            logger.debug("6 in player")
                             self.VLCPlayer.set_media(media)
+                            logger.debug("7 in player")
                             self.VLCPlayer.play()
+                            logger.debug("8 in player")
+
                             self.currentSong = song
 
                             while not self.VLCPlayer.is_playing:
@@ -312,7 +321,7 @@ class Player(Thread):
 
         jsonString = jsonpickle.encode(self.queue)
         try:
-            with open('queue.json', 'w') as f:
+            with open(os.getcwd() + '/queue.json', 'w') as f:
                 f.write(jsonString)
                 logger.debug("wrote %s", jsonString)
 
@@ -396,31 +405,3 @@ class Player(Thread):
                 {"worker": "queue", "action": "restore", "cookie": "rewrite", "status": "warning",
                  "info": "Video too long",
                  "taskId": self.taskId})
-
-    def calculate_pos(self, flag=False):
-        length = self.get_length()
-        if self.currentSong and length:
-
-            FormattedPos = self.formatSeconds(round(self.VLCPlayer.get_time() / 1000))
-            FormattedLength = self.formatSeconds(length / 1000)
-            b = round((self.VLCPlayer.get_time() * 10000) / length)
-            if self.VLCPlayer.is_playing():
-
-                self.communicateBack(
-                    {"worker": "player", "pos": b, "title": self.currentSong.title, "taskId": 100_000,
-                     "length": FormattedLength, "seconds": FormattedPos}, False)
-
-            else:
-                if self.stopped or self.force_stopped:
-                    if flag:
-                        self.communicateBack(
-                            {"worker": "player", "pos": b, "title": "Stopped(" + self.currentSong.title + ")",
-                             "taskId": 100_000,
-                             "length": FormattedLength, "seconds": FormattedPos}, False)
-
-        else:
-            if flag:
-                self.communicateBack(
-                    {"worker": "player", "pos": 0, "title": "Nothing is playing", "taskId": 100_000,
-                     "length": "00:00", "seconds": "00:00"}, False)
-
