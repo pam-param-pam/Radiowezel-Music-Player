@@ -26,9 +26,6 @@ class AddCommand(Command):
         except IndexError:
             raise IncorrectArgument("no NAME specified")
 
-    def onLostControl(self):
-        pass
-
 
 class HelpCommand(Command):
     def __init__(self, pl, commands, name):
@@ -52,9 +49,6 @@ class HelpCommand(Command):
                 print(
                     f"{Fore.LIGHTMAGENTA_EX + ', '.join(command.getNames())}: {Fore.LIGHTBLUE_EX + command.getShortDesc()}")
 
-        def onLostControl(self):
-            pass
-
 
 class InfoCommand(Command):
 
@@ -75,12 +69,12 @@ class InfoCommand(Command):
         if self.pl.VLCPlayer.is_playing():
             state = "Playing..."
         FormattedPos = self.pl.formatSeconds(round(self.pl.VLCPlayer.get_time() / 1000))
-        FormattedLength = self.pl.formatSeconds(round(self.pl.currentSong.length))
+        if not self.pl.currentSong:
+            FormattedLength = "0:00"
+        else:
+            FormattedLength = self.pl.formatSeconds(round(self.pl.currentSong.length))
         print(Fore.LIGHTMAGENTA_EX + "Current song: " + Fore.LIGHTBLUE_EX + str(
             self.pl.currentSong) + Fore.LIGHTMAGENTA_EX + "\nPosition: " + Fore.LIGHTBLUE_EX + FormattedPos + "/" + FormattedLength + Fore.LIGHTMAGENTA_EX + "\nState: " + Fore.LIGHTBLUE_EX + state)
-
-    def onLostControl(self):
-        pass
 
 
 class MoveCommand(Command):
@@ -104,9 +98,6 @@ class MoveCommand(Command):
             raise IncorrectArgument("INDEX must be an int")
         except IndexError:
             raise IncorrectArgument("INDEX is not correct")
-
-    def onLostControl(self):
-        pass
 
 
 class NextCommand(Command):

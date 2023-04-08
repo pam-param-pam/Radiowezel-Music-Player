@@ -13,7 +13,7 @@ class ArgumentParser:
         self.register_command_class(PauseCommand(pl, ("pause", "stop")))
         self.register_command_class(InfoCommand(pl, ("info", )))
         self.register_command_class(AddCommand(pl, ("add", )))
-        self.register_command_class(RemoveCommand(pl, ("remove", "rem", )))
+        self.register_command_class(RemoveCommand(pl, ("remove", "rm", )))
         self.register_command_class(QueueCommand(pl, ("queue", )))
         self.register_command_class(VolumeCommand(pl, ("volume", )))
         self.register_command_class(MoveCommand(pl, ("move", )))
