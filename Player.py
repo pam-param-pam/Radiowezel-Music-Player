@@ -80,7 +80,8 @@ class Player(Thread):
             total = sp.playlist_items(playlistId)["total"]
             for track in sp.playlist_items(playlistId)["items"]:
                 name = track["track"]["name"]
-                artist = track["track"]["artists"]["name"]
+
+                artist = track["track"]["artists"][0]["name"]
                 total -= 1
                 try:
                     self.queue.name_add(name + " " + artist)

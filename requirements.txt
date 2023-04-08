@@ -7,5 +7,4 @@ jsonpickle==3.0.1
 yt-dlp==2023.2.17
 pafy==0.5.5
 python-vlc==3.0.18121
-Pygments==2.14.0
-prompt-toolkit==3.0.38
+colorama==0.4.6

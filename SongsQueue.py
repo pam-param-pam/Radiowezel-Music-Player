@@ -84,6 +84,11 @@ class SongsQueue:
             if song.id == videoId:
                 return song
 
+    def get_by_name(self, name):
+        for song in self.songs:
+            if song.title == name:
+                return song
+
     def size(self):
         return len(self.songs)
 

@@ -4,10 +4,12 @@ import threading
 import time
 
 import websocket
+from colorama import Fore, Style
 from prompt_toolkit import print_formatted_text, PromptSession
 from prompt_toolkit.lexers import PygmentsLexer
 from pygments.lexers.html import HtmlLexer
 
+from Fun.ArgumentParser import ArgumentParser
 from Player import Player
 from guard import canPlay
 
@@ -135,7 +137,11 @@ def process_message(message):
 
 
 def on_message(webSocket, message):
-    process_message(message)
+    def run(*args):
+        process_message(message)
+
+    threading.Thread(target=run).start()
+
 
 
 def on_ping(webSocket, message):
@@ -208,86 +214,14 @@ def run_for_eternity():
 
 
 def wait_for_input():
+    parser = ArgumentParser(pl)
+
     while True:
         try:
-            a = input()
-            list = a.split(" ")
-            arg = list[0].lower()
-            if arg == "add":
-                try:
-                    list.pop(0)
-                    name = ' '.join(list)
-                    pl.queue.name_add(name)
-                    print("Added " + str(pl.queue.peek(-1)))
-                except IndexError:
-                    print("no NAME specified")
-
-            elif arg in ("rem", "remove"):
-                try:
-                    song = pl.queue.peek(int(list[1]))
-                    pl.queue.remove_by_index(int(list[1]))
-                    print("Removed " + str(song))
-                except (TypeError, ValueError):
-                    list.pop(0)
-                    name = ' '.join(list)
-                    pl.queue.name_remove(name)
-                    print("Removed " + name)
-                except IndexError:
-                    print("no NAME specified")
-            elif arg == "volume":
-                try:
-                    pl.set_volume(int(list[1]))
-                    print("Set volume to: " + list[1])
-                except (TypeError, ValueError):
-                    print("VOLUME must be an int")
-
-                except IndexError:
-                    print(pl.VLCPlayer.audio_get_volume())
-            elif arg == "seek":
-                try:
-                    pos = int(list[1])
-                    pl.VLCPlayer.set_time(int(pos * 1000))
-
-                except (TypeError, ValueError):
-                    print("TIME must be an int")
-                except IndexError:
-                    print("no TIME specified")
-            elif arg == "queue":
-                if pl.queue.is_empty():
-                    print("Queue is empty")
-                else:
-                    for i, song in enumerate(pl.queue.songs):
-                        print(str(i) + ">> " + str(song))
-
-            elif arg == "stop":
-                pl.pause()
-                print("Stopped")
-            elif arg == "pause":
-                pl.pauseFadeout()
-                print("Paused")
-            elif arg == "play":
-                pl.play()
-                print("Playing...")
-            elif arg == "next":
-                pl.play(True)
-                print("Playing next song...")
-            elif arg == "repeat":
-                pl.repeat = not pl.repeat
-                print("Toggled")
-            elif arg == "info":
-                state = "Unknown..."
-                if pl.stopped:
-                    state = "stopped..."
-                if pl.force_stopped:
-                    state = "force stopped"
-                if pl.VLCPlayer.is_playing():
-                    state = "Playing..."
-                FormattedPos = pl.formatSeconds(round(pl.VLCPlayer.get_time() / 1000))
-                print("Current song: " + str(pl.currentSong) + "\nPosition: " + FormattedPos + "\nState: " + state)
-            else:
-                print("COMMAND NOT FOUND")
+            a = input(Style.BRIGHT + Fore.LIGHTGREEN_EX + "Enter a command: ")
+            parser.parse_arguments(a)
         except Exception as e:
-            logger.warning("Error happened in wait for input:\n %s", str(e))
+            logger.error("Error happened in wait for input:\n %s", str(e))
 
 
 wst = threading.Thread(target=run_for_eternity, name='websocket')
