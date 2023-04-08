@@ -120,6 +120,18 @@ class Player(Thread):
 
         return str(minutes) + ":" + str(seconds)
 
+    def set_speed(self, speed):
+        if speed == 0.5:
+            self.VLCPlayer.set_rate(0.7)
+        elif speed == 0.25:
+            self.VLCPlayer.set_rate(0.4)
+        elif speed == 2:
+            self.VLCPlayer.set_rate(1.7)
+        elif speed == 1.5:
+            self.VLCPlayer.set_rate(1.4)
+        else:
+            self.VLCPlayer.set_rate(1)
+
     def resume(self):
         logger.debug("Resume request acknowledged")
 
@@ -286,6 +298,7 @@ class Player(Thread):
                      "taskId": self.taskId})
         except TypeError:
             pass
+
     def get_volume(self):
         logger.debug("Get volume request acknowledged")
         self.communicateBack(

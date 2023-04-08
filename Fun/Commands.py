@@ -9,7 +9,6 @@ from Fun.Command import Command
 
 class AddCommand(Command):
 
-
     def __init__(self, pl, name):
         super().__init__(name)
         self.pl = pl
@@ -29,6 +28,8 @@ class AddCommand(Command):
 
     def onLostControl(self):
         pass
+
+
 class HelpCommand(Command):
     def __init__(self, pl, commands, name):
         super().__init__(name)
@@ -53,6 +54,8 @@ class HelpCommand(Command):
 
         def onLostControl(self):
             pass
+
+
 class InfoCommand(Command):
 
     def __init__(self, pl, name):
@@ -60,7 +63,7 @@ class InfoCommand(Command):
         self.pl = pl
 
     shortDesc = "Get current player state"
-    longDesc = "Get current player state. Including current song, its position in seconds and whatever player is stopped or playing"
+    longDesc = "Get current player state. Including current song, its position in seconds and whatever player is stopped or playing."
 
     def execute(self, args):
         requireExactly(0, args)
@@ -75,8 +78,10 @@ class InfoCommand(Command):
         FormattedLength = self.pl.formatSeconds(round(self.pl.currentSong.length))
         print(Fore.LIGHTMAGENTA_EX + "Current song: " + Fore.LIGHTBLUE_EX + str(
             self.pl.currentSong) + Fore.LIGHTMAGENTA_EX + "\nPosition: " + Fore.LIGHTBLUE_EX + FormattedPos + "/" + FormattedLength + Fore.LIGHTMAGENTA_EX + "\nState: " + Fore.LIGHTBLUE_EX + state)
+
     def onLostControl(self):
         pass
+
 
 class MoveCommand(Command):
 
@@ -85,7 +90,7 @@ class MoveCommand(Command):
         self.pl = pl
 
     shortDesc = "Move a song in the queue"
-    longDesc = "Move a song in the queue.\n To move a song use its index in the queue and position to move to.\nExample:\n `move 1 2` to move the first song to the second position"
+    longDesc = "Move a song in the queue.\n To move a song use its index in the queue and position to move to.\nExample:\n `move 1 2` to move the first song to the second position."
 
     def execute(self, args):
         requireExactly(2, args)
@@ -102,6 +107,8 @@ class MoveCommand(Command):
 
     def onLostControl(self):
         pass
+
+
 class NextCommand(Command):
 
     def __init__(self, pl, name):
@@ -139,7 +146,7 @@ class VolumeCommand(Command):
         self.pl = pl
 
     shortDesc = "Get or change volume"
-    longDesc = "Get or change volume.\n Example:\n `volume` to get current volume\n 'volume 50' to change volume to 50%"
+    longDesc = "Get or change volume.\n Example:\n `volume` to get current volume\n 'volume 50' to change volume to 50%."
 
     def execute(self, args):
         requireAtLeast(0, args)
@@ -160,7 +167,7 @@ class SeekCommand(Command):
         self.pl = pl
 
     shortDesc = "Seek current song"
-    longDesc = "Seek current song.\n Example: 'seek 100' to seek to 100th second in the song(1:40)"
+    longDesc = "Seek current song.\n Example: 'seek 100' to seek to 100th second in the song(1:40)."
 
     def execute(self, args):
         requireExactly(1, args)
@@ -182,7 +189,7 @@ class RepeatCommand(Command):
         self.pl = pl
 
     shortDesc = "Toggle repeat"
-    longDesc = "Change whatever music should play on repeat.\nExample:\n'repeat' to toggle it or 'repeat true' to explicitly set it to true"
+    longDesc = "Change whatever music should play on repeat.\nExample:\n'repeat' to toggle it or 'repeat true' to explicitly set it to true."
 
     def execute(self, args):
         requireAtLeast(0, args)
@@ -205,7 +212,7 @@ class RemoveCommand(Command):
         self.pl = pl
 
     shortDesc = "Remove a song from the queue"
-    longDesc = "Remove a song from the queue by its index or name.\nExample:\n `remove 1` to remove the first song\n `remove song Hero` to remove a song called 'Hero'"
+    longDesc = "Remove a song from the queue by its index or name.\nExample:\n `remove 1` to remove the first song\n `remove song Hero` to remove a song called 'Hero'."
 
     def execute(self, args):
         requireAtLeast(1, args)
@@ -229,13 +236,18 @@ class QueueCommand(Command):
         self.pl = pl
 
     shortDesc = "Get the current queue"
-    longDesc = "Get the current queue"
+    longDesc = "Get the current queue. Use -v or --verbose to get more information."
 
     def execute(self, args):
-        requireExactly(0, args)
-
+        requireAtLeast(0, args)
         if self.pl.queue.is_empty():
             print(Fore.RED + "Queue is empty")
+            return
+        if len(args) > 0 and args[0].lower() in ["-v", "--verbose"]:
+
+            for i, song in enumerate(self.pl.queue.songs):
+                print(Fore.LIGHTRED_EX + str(i + 1) + Fore.WHITE + ">> " + Fore.MAGENTA + str(song) + Fore.WHITE + " by " + Fore.LIGHTBLUE_EX + str(song.author) + Fore.WHITE + "(" + Fore.LIGHTCYAN_EX + str(self.pl.formatSeconds(song.length)) + Fore.WHITE + ") --- " + Fore.LIGHTBLACK_EX + song.id)
+
         else:
             for i, song in enumerate(self.pl.queue.songs):
                 print(Fore.LIGHTRED_EX + str(i + 1) + Fore.WHITE + ">> " + Fore.MAGENTA + str(song))
@@ -263,7 +275,7 @@ class DebugCommand(Command):
         self.pl = pl
 
     shortDesc = "Change debug level"
-    longDesc = "Change debug level.\n You can pick from 'debug', 'info', 'warning', 'error', 'critical'."
+    longDesc = "Change debug level.\n You can pick from 'debug', 'info', 'warning', 'error' and 'critical'."
 
     def execute(self, args):
         requireExactly(1, args)
@@ -282,3 +294,25 @@ class DebugCommand(Command):
         else:
             raise IncorrectArgument("Incorrect debug level")
         print(Fore.MAGENTA + "Set level to " + Fore.LIGHTRED_EX + args[0].upper())
+
+
+class SpeedCommand(Command):
+
+    def __init__(self, pl, name):
+        super().__init__(name)
+        self.pl = pl
+
+    shortDesc = "Change playback speed"
+    longDesc = "Change playback speed.\n Accepts '0.25', '0.5', '1', '1.5' and '2.0'."
+
+    def execute(self, args):
+        requireExactly(1, args)
+        try:
+            self.pl.set_speed(float(args[0]))
+            if args[0] == "0.5" or args[0] == "0.25" or args[0] == "2.0" or args[0] == "1.5":
+                print(Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + args[0])
+            else:
+                print(Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + "1")
+
+        except (TypeError, ValueError):
+            raise IncorrectArgument("SPEED must be a number")

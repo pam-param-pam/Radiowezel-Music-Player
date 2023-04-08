@@ -2,7 +2,7 @@ from colorama import Fore
 
 from Fun.ArgumentException import IncorrectArgument
 from Fun.Commands import HelpCommand, RepeatCommand, SeekCommand, MoveCommand, VolumeCommand, QueueCommand, \
-    RemoveCommand, InfoCommand, PauseCommand, PlayCommand, AddCommand, DebugCommand, NextCommand
+    RemoveCommand, InfoCommand, PauseCommand, PlayCommand, AddCommand, DebugCommand, NextCommand, SpeedCommand
 
 
 class ArgumentParser:
@@ -20,7 +20,7 @@ class ArgumentParser:
         self.register_command_class(SeekCommand(pl, ("seek", )))
         self.register_command_class(RepeatCommand(pl, ("repeat",)))
         self.register_command_class(DebugCommand(pl, ("debug",)))
-
+        self.register_command_class(SpeedCommand(pl, ("speed",)))
         self.register_command_class(HelpCommand(pl, self.commands, ("help", )))
 
     def get_commands(self):
