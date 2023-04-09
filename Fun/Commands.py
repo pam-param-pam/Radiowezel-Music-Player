@@ -1,6 +1,7 @@
 import logging
-
-from colorama import Fore
+import time
+from reprint import output
+from colorama import Fore, Style
 
 from Fun.ArgsChecker import requireAtLeast, requireExactly
 from Fun.ArgumentException import IncorrectArgument
@@ -21,7 +22,7 @@ class AddCommand(Command):
         try:
             name = ' '.join(args)
             self.pl.queue.name_add(name)
-            print(Fore.MAGENTA + "Added " + str(self.pl.queue.peek(-1)))
+            print(Style.BRIGHT + Fore.MAGENTA + "Added " + str(self.pl.queue.peek(-1)))
             self.pl.notifyAboutQueueChange()
         except IndexError:
             raise IncorrectArgument("no NAME specified")
@@ -40,14 +41,14 @@ class HelpCommand(Command):
         if len(args) > 0:
             for command in self.commands:
                 if args[0] in command.getNames():
-                    print(Fore.LIGHTBLUE_EX + command.getLongDesc())
+                    print(Style.BRIGHT + Fore.LIGHTBLUE_EX + command.getLongDesc())
                     return
             IncorrectArgument("Command not found")
         else:
-            print(Fore.CYAN + "Available commands:")
+            print(Style.BRIGHT + Fore.CYAN + "Available commands:")
             for command in self.commands:
-                print(
-                    f"{Fore.LIGHTMAGENTA_EX + ', '.join(command.getNames())}: {Fore.LIGHTBLUE_EX + command.getShortDesc()}")
+                print(Style.BRIGHT + " " + Fore.LIGHTMAGENTA_EX + ', '.join(
+                    command.getNames()) + ": " + Fore.LIGHTBLUE_EX + command.getShortDesc())
 
 
 class InfoCommand(Command):
@@ -59,8 +60,7 @@ class InfoCommand(Command):
     shortDesc = "Get current player state"
     longDesc = "Get current player state. Including current song, its position in seconds and whatever player is stopped or playing."
 
-    def execute(self, args):
-        requireExactly(0, args)
+    def get_state(self):
         state = "Unknown..."
         if self.pl.stopped:
             state = "stopped..."
@@ -68,13 +68,38 @@ class InfoCommand(Command):
             state = "force stopped"
         if self.pl.VLCPlayer.is_playing():
             state = "Playing..."
-        FormattedPos = self.pl.formatSeconds(round(self.pl.VLCPlayer.get_time() / 1000))
-        if not self.pl.currentSong:
-            FormattedLength = "0:00"
-        else:
-            FormattedLength = self.pl.formatSeconds(round(self.pl.currentSong.length))
-        print(Fore.LIGHTMAGENTA_EX + "Current song: " + Fore.LIGHTBLUE_EX + str(
-            self.pl.currentSong) + Fore.LIGHTMAGENTA_EX + "\nPosition: " + Fore.LIGHTBLUE_EX + FormattedPos + "/" + FormattedLength + Fore.LIGHTMAGENTA_EX + "\nState: " + Fore.LIGHTBLUE_EX + state)
+        return state
+
+    def execute(self, args):
+        requireExactly(0, args)
+        with output() as op:
+            while self.flag:
+                a = "{BRIGHT}{LM}Current song: {LB}{song}".format(
+                    song=self.pl.currentSong,
+                    BRIGHT=Style.BRIGHT,
+                    LM=Fore.LIGHTMAGENTA_EX,
+                    LB=Fore.LIGHTBLUE_EX)
+                b = "{BRIGHT}{LM}position: {LB}{position}".format(
+                    position=self.pl.formatSeconds(
+                        round(self.pl.VLCPlayer.get_time() / 1000)) + "/" + self.pl.formatSeconds(
+                        round(self.pl.currentSong.length) if self.pl.currentSong is not None else 0),
+                    BRIGHT=Style.BRIGHT,
+                    LM=Fore.LIGHTMAGENTA_EX,
+                    LB=Fore.LIGHTBLUE_EX)
+
+                c = "{BRIGHT}{LM}State: {LB}{state}".format(
+                    state=self.get_state(),
+                    BRIGHT=Style.BRIGHT,
+                    LM=Fore.LIGHTMAGENTA_EX,
+                    LB=Fore.LIGHTBLUE_EX)
+                op.append(a)
+                op.append(b)
+                op.append(c)
+                time.sleep(1)
+                op.remove(a)
+                op.remove(b)
+                op.remove(c)
+            self.flag = True
 
 
 class MoveCommand(Command):
@@ -92,7 +117,7 @@ class MoveCommand(Command):
 
             song = str(self.pl.queue.peek(int(args[0]) - 1))
             self.pl.queue.move(int(args[0]) - 1, int(args[1]) - 1)
-            print(Fore.MAGENTA + "Moved " + song + " to " + args[1])
+            print(Style.BRIGHT + Fore.MAGENTA + "Moved " + song + " to " + args[1])
             self.pl.notifyAboutQueueChange()
         except (TypeError, ValueError):
             raise IncorrectArgument("INDEX must be an int")
@@ -112,7 +137,6 @@ class NextCommand(Command):
     def execute(self, args):
         requireExactly(0, args)
         self.pl.play(True)
-        print(Fore.MAGENTA + "Playing next song...")
 
 
 class PauseCommand(Command):
@@ -127,7 +151,6 @@ class PauseCommand(Command):
     def execute(self, args):
         requireExactly(0, args)
         self.pl.pauseFadeout()
-        print(Fore.MAGENTA + "Paused")
 
 
 class VolumeCommand(Command):
@@ -143,12 +166,11 @@ class VolumeCommand(Command):
         requireAtLeast(0, args)
         try:
             self.pl.set_volume(int(args[0]))
-            print(Fore.MAGENTA + "Set volume to: " + Fore.LIGHTRED_EX + args[0])
         except (TypeError, ValueError):
             raise IncorrectArgument("VOLUME must be an int")
 
         except IndexError:
-            print(Fore.MAGENTA + self.pl.VLCPlayer.audio_get_volume())
+            print(Style.BRIGHT + Fore.MAGENTA + str(self.pl.VLCPlayer.audio_get_volume()))
 
 
 class SeekCommand(Command):
@@ -166,7 +188,7 @@ class SeekCommand(Command):
             pos = int(args[0])
             self.pl.VLCPlayer.set_time(int(pos * 1000))
             FormattedPos = self.pl.formatSeconds(round(self.pl.VLCPlayer.get_time() / 1000))
-            print(Fore.MAGENTA + "Sought to " + FormattedPos)
+            print(Style.BRIGHT + Fore.MAGENTA + "Sought to " + FormattedPos)
         except (TypeError, ValueError):
             raise IncorrectArgument("TIME must be an int")
         except IndexError:
@@ -189,11 +211,11 @@ class RepeatCommand(Command):
                 self.pl.repeat = False
             elif args[0] == "1" or args[0].lower() == "true":
                 self.pl.repeat = True
-            print(Fore.MAGENTA + "Repeat is now " + str(self.pl.repeat))
+            print(Style.BRIGHT + Fore.MAGENTA + "Repeat is now " + str(self.pl.repeat))
 
         except IndexError:
             self.pl.repeat = not self.pl.repeat
-            print(Fore.MAGENTA + "Repeat is now " + str(self.pl.repeat))
+            print(Style.BRIGHT + Fore.MAGENTA + "Repeat is now " + str(self.pl.repeat))
 
 
 class RemoveCommand(Command):
@@ -210,11 +232,11 @@ class RemoveCommand(Command):
         try:
             song = self.pl.queue.peek(int(args[0]) - 1)
             self.pl.queue.remove_by_index(int(args[0]) - 1)
-            print(Fore.MAGENTA + "Removed " + str(song))
+            print(Style.BRIGHT + Fore.MAGENTA + "Removed " + str(song))
         except (TypeError, ValueError):
             name = ' '.join(args)
             self.pl.queue.name_remove(name)
-            print(Fore.MAGENTA + "Removed " + name)
+            print(Style.BRIGHT + Fore.MAGENTA + "Removed " + name)
             self.pl.notifyAboutQueueChange()
         except IndexError:
             raise IncorrectArgument("no NAME specified")
@@ -232,16 +254,19 @@ class QueueCommand(Command):
     def execute(self, args):
         requireAtLeast(0, args)
         if self.pl.queue.is_empty():
-            print(Fore.RED + "Queue is empty")
+            print(Style.BRIGHT + Fore.RED + "Queue is empty")
             return
         if len(args) > 0 and args[0].lower() in ["-v", "--verbose"]:
 
             for i, song in enumerate(self.pl.queue.songs):
-                print(Fore.LIGHTRED_EX + str(i + 1) + Fore.WHITE + ">> " + Fore.MAGENTA + str(song) + Fore.WHITE + " by " + Fore.LIGHTBLUE_EX + str(song.author) + Fore.WHITE + "(" + Fore.LIGHTCYAN_EX + str(self.pl.formatSeconds(song.length)) + Fore.WHITE + ") --- " + Fore.LIGHTBLACK_EX + song.id)
+                print(Style.BRIGHT + Fore.LIGHTRED_EX + str(i + 1) + Fore.WHITE + ">> " + Fore.MAGENTA + str(
+                    song) + Fore.WHITE + " by " + Fore.LIGHTBLUE_EX + str(
+                    song.author) + Fore.WHITE + "(" + Fore.LIGHTCYAN_EX + str(
+                    self.pl.formatSeconds(song.length)) + Fore.WHITE + ") --- " + Fore.LIGHTBLACK_EX + song.id)
 
         else:
             for i, song in enumerate(self.pl.queue.songs):
-                print(Fore.LIGHTRED_EX + str(i + 1) + Fore.WHITE + ">> " + Fore.MAGENTA + str(song))
+                print(Style.BRIGHT + Fore.LIGHTRED_EX + str(i + 1) + Fore.WHITE + ">> " + Fore.MAGENTA + str(song))
 
 
 class PlayCommand(Command):
@@ -256,7 +281,6 @@ class PlayCommand(Command):
     def execute(self, args):
         requireExactly(0, args)
         self.pl.play()
-        print(Fore.MAGENTA + "Playing...")
 
 
 class DebugCommand(Command):
@@ -273,7 +297,7 @@ class DebugCommand(Command):
         logger = logging.getLogger('Main')
         if args[0] == 'debug':
             logger.setLevel(logging.DEBUG)
-            print(Fore.WHITE + "Good luck stopping it now LOL")
+            print(Style.BRIGHT + Fore.WHITE + "Good luck stopping it now LOL")
         elif args[0] == 'info':
             logger.setLevel(logging.INFO)
         elif args[0] == 'warning':
@@ -284,7 +308,7 @@ class DebugCommand(Command):
             logger.setLevel(logging.CRITICAL)
         else:
             raise IncorrectArgument("Incorrect debug level")
-        print(Fore.MAGENTA + "Set level to " + Fore.LIGHTRED_EX + args[0].upper())
+        print(Style.BRIGHT + Fore.MAGENTA + "Set level to " + Fore.LIGHTRED_EX + args[0].upper())
 
 
 class SpeedCommand(Command):
@@ -301,9 +325,9 @@ class SpeedCommand(Command):
         try:
             self.pl.set_speed(float(args[0]))
             if args[0] == "0.5" or args[0] == "0.25" or args[0] == "2.0" or args[0] == "1.5":
-                print(Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + args[0])
+                print(Style.BRIGHT + Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + args[0])
             else:
-                print(Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + "1")
+                print(Style.BRIGHT + Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + "1")
 
         except (TypeError, ValueError):
             raise IncorrectArgument("SPEED must be a number")

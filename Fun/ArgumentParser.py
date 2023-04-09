@@ -1,4 +1,6 @@
-from colorama import Fore
+import threading
+
+from colorama import Fore, Style
 
 from Fun.ArgumentException import IncorrectArgument
 from Fun.Commands import HelpCommand, RepeatCommand, SeekCommand, MoveCommand, VolumeCommand, QueueCommand, \
@@ -8,6 +10,8 @@ from Fun.Commands import HelpCommand, RepeatCommand, SeekCommand, MoveCommand, V
 class ArgumentParser:
     def __init__(self, pl):
         self.commands = []
+        self.thread = None
+        self.last_command = None
         self.register_command_class(PlayCommand(pl, ("play",)))
         self.register_command_class(NextCommand(pl, ("next",)))
         self.register_command_class(PauseCommand(pl, ("pause", "stop")))
@@ -30,20 +34,30 @@ class ArgumentParser:
         self.commands.append(command)
 
     def parse_arguments(self, input_str):
+
         try:
+            if self.last_command:
+                self.last_command.on_control_end()
             input_list = input_str.split()
 
             prefix = input_list[0].lower()
             for command in self.commands:
 
                 if prefix in command.getNames():
+
+
+                    self.last_command = command
                     args = input_list[1:]
-                    try:
-                        command.execute(args)
-                        return
-                    except IncorrectArgument as e:
-                        print(Fore.RED + str(e))
-                        return
-            print(Fore.RED + "Command not found")
+                    def run():
+                        try:
+                            command.execute(args)
+                            return
+                        except IncorrectArgument as e:
+                            print(Style.BRIGHT + Fore.RED + str(e))
+                            return
+                    threading.Thread(target=run, name="CONSOLE").start()
+                    return
+            else:
+                print(Style.BRIGHT + Fore.RED + "Command not found")
         except IndexError:
-            print(Fore.RED + "command not found")
+            print(Style.BRIGHT + Fore.RED + "command not found")

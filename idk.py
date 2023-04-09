@@ -3,11 +3,9 @@ import logging
 import threading
 import time
 
+import colorama
 import websocket
 from colorama import Fore, Style
-from prompt_toolkit import print_formatted_text, PromptSession
-from prompt_toolkit.lexers import PygmentsLexer
-from pygments.lexers.html import HtmlLexer
 
 from Fun.ArgumentParser import ArgumentParser
 from Player import Player
@@ -22,76 +20,58 @@ logger.setLevel(logging.INFO)
 timeBetweenSongs = 0  # seconds
 
 
-def get_queue():
-    return pl.queue
-
-
 def process_message(message):
     logger.debug("Processing message: " + message)
 
     jMessage = json.loads(message)
     taskId = jMessage["taskId"]
-    pl.taskId = taskId
     action = jMessage["action"]
-
+    threading.current_thread().setName(str(taskId))
     if jMessage["worker"] == "player":
         if action == "play":
             logger.debug("Matched player play")
             pl.play()
             calculate_pos(True)
-            pl.taskId = None
         elif action == "stop":
             logger.debug("Matched player stop")
             pl.stop()
             calculate_pos(True)
-            pl.taskId = None
         elif action == "pause":
             logger.debug("Matched player pause")
             pl.pause()
             calculate_pos(True)
-            pl.taskId = None
         elif action == "smooth_pause":
             logger.debug("Matched player pause")
             pl.pauseFadeout()
             calculate_pos(True)
-            pl.taskId = None
         elif action == "resume":
             logger.debug("Matched player resume")
             pl.play()
             calculate_pos(True)
-            pl.taskId = None
         elif action == "seek":
             logger.debug("Matched player seek")
             pl.seek(jMessage["extras"]["seconds"])
-            pl.taskId = None
         elif action == "next":
             logger.debug("Matched player next")
             pl.next()
             calculate_pos(True)
-            pl.taskId = None
         elif action == "set_volume":
             logger.debug("Matched player set volume")
             pl.set_volume(jMessage["extras"]["volume"])
-            pl.taskId = None
         elif action == "get_volume":
             logger.debug("Matched player get volume")
             pl.get_volume()
-            pl.taskId = None
         elif action == "toggle_repeat":
             logger.debug("Matched player toggle repeat")
             pl.toggle_repeat()
-            pl.taskId = None
         elif action == "get_repeat":
             logger.debug("Matched player toggle repeat")
             pl.get_repeat()
-            pl.taskId = None
         elif action == "ding-dong":
             logger.debug("Matched player ding-dong")
             pl.dingDong()
-            pl.taskId = None
         elif action == "get_pos":
             calculate_pos(True)
-            pl.taskId = None
         else:
             logger.warning("None player matched")
 
@@ -100,35 +80,27 @@ def process_message(message):
         if action == "add":
             logger.debug("Matched queue add")
             pl.add_to_queue(jMessage["extras"]["videoId"])
-            pl.taskId = None
         elif action == "restore":
             logger.debug("Matched queue restore")
             pl.restore_in_queue(jMessage["extras"]["videoId"], jMessage["extras"]["position"])
-            pl.taskId = None
         elif action == "remove":
             logger.debug("Matched queue remove")
             pl.remove_from_queue(jMessage["extras"]["videoId"])
-            pl.taskId = None
         elif action == "move":
             logger.debug("Matched queue move")
             pl.move_in_queue(jMessage["extras"]["starting_i"], jMessage["extras"]["ending_i"])
-            pl.taskId = None
         elif action == "move_by_id":
             logger.debug("Matched queue move by id")
             pl.move_by_id_in_queue(jMessage["extras"]["videoId"], jMessage["extras"]["position"])
-            pl.taskId = None
         elif action == "empty":
             logger.debug("Matched queue empty")
             pl.empty_queue()
-            pl.taskId = None
         elif action == "get":
             logger.debug("Matched queue get")
             pl.notifyAboutQueueChange()
-            pl.taskId = None
         elif action == "spotify":
             logger.debug("Matched queue spotify")
             pl.fetch_songs_from_playlist(jMessage["extras"]["playlist_id"])
-            pl.taskId = None
         else:
             logger.warning("None queue matched")
             pl.communicateBack("Couldn't match any")
@@ -139,6 +111,7 @@ def process_message(message):
 def on_message(webSocket, message):
     def run(*args):
         process_message(message)
+
 
     threading.Thread(target=run).start()
 
@@ -161,7 +134,7 @@ def on_close(webSocket, status_code, reason):
 
 
 def on_error(webSocket, error):
-    logger.error("Error happened in ws: %s", error)
+    logger.error(Fore.RED + "Error happened in ws: %s", error)
 
 
 ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
@@ -203,7 +176,7 @@ def send_pos():
         try:
             calculate_pos()
         except Exception as e:
-            logger.error("Error happened in send_pos:\n %s", str(e))
+            logger.error(Fore.RED + "Error happened in send_pos:\n %s", str(e))
         time.sleep(1)
 
 
@@ -214,14 +187,16 @@ def run_for_eternity():
 
 
 def wait_for_input():
+    colorama.init(autoreset=True)
+
     parser = ArgumentParser(pl)
 
     while True:
         try:
-            a = input(Style.BRIGHT + Fore.LIGHTGREEN_EX + "Enter a command: ")
+            a = input()
             parser.parse_arguments(a)
         except Exception as e:
-            logger.error("Error happened in wait for input:\n %s", str(e))
+            logger.error(Style.BRIGHT + Fore.RED + "Error happened in wait for input:\n %s", str(e))
 
 
 wst = threading.Thread(target=run_for_eternity, name='websocket')
@@ -259,5 +234,5 @@ while True:
                 pl.force_stopped = False
                 pl.play()
     except Exception as e:
-        logger.error("Error happened in while TRUE:\n %s", str(e))
+        logger.error(Fore.RED + "Error happened in while TRUE:\n %s", str(e))
         pl.fetching = False

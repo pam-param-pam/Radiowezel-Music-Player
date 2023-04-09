@@ -5,6 +5,7 @@ class Command(ABC):
 
     def __init__(self, names):
         self.names = names
+        self.flag = True
 
     @property
     @abstractmethod
@@ -19,6 +20,9 @@ class Command(ABC):
     @abstractmethod
     def execute(self, args):
         raise NotImplementedError
+
+    def on_control_end(self):
+        self.flag = False
 
     def getNames(self):
         return self.names
