@@ -1,9 +1,11 @@
 import logging
+import sys
 import time
 from reprint import output
 from colorama import Fore, Style
-
-from Fun.ArgsChecker import requireAtLeast, requireExactly
+import sounddevice as sd
+import numpy as np
+from Fun.ArgsChecker import requireAtLeast, requireExactly, requireNoMoreThan
 from Fun.ArgumentException import IncorrectArgument
 from Fun.Command import Command
 
@@ -72,6 +74,7 @@ class InfoCommand(Command):
 
     def execute(self, args):
         requireExactly(0, args)
+
         with output() as op:
             while self.flag:
                 a = "{BRIGHT}{LM}Current song: {LB}{song}".format(
@@ -95,7 +98,11 @@ class InfoCommand(Command):
                 op.append(a)
                 op.append(b)
                 op.append(c)
+                sys.stdout.write(u"\u001b[3B")  # Move up
+
                 time.sleep(1)
+                sys.stdout.write(u"\u001b[3A")  # Move down
+
                 op.remove(a)
                 op.remove(b)
                 op.remove(c)
@@ -149,8 +156,13 @@ class PauseCommand(Command):
     longDesc = "Pause a song.\n If there is no current song, nothing will happen."
 
     def execute(self, args):
-        requireExactly(0, args)
-        self.pl.pauseFadeout()
+        requireNoMoreThan(1, args)
+        if len(args) > 0 and args[0].lower() in ["-f", "--force"]:
+            self.pl.VLCPlayer.set_pause(True)
+            self.pl.stopped = True
+            print(Style.BRIGHT + Fore.MAGENTA + "Force paused")
+        else:
+            self.pl.pauseFadeout()
 
 
 class VolumeCommand(Command):
@@ -252,7 +264,7 @@ class QueueCommand(Command):
     longDesc = "Get the current queue. Use -v or --verbose to get more information."
 
     def execute(self, args):
-        requireAtLeast(0, args)
+        requireNoMoreThan(1, args)
         if self.pl.queue.is_empty():
             print(Style.BRIGHT + Fore.RED + "Queue is empty")
             return
@@ -318,16 +330,54 @@ class SpeedCommand(Command):
         self.pl = pl
 
     shortDesc = "Change playback speed"
-    longDesc = "Change playback speed.\n Accepts '0.25', '0.5', '1', '1.5' and '2.0'."
+    longDesc = "Change playback speed.\n Accepts '0.25', '0.5', '1', '1.5' and '2'."
 
     def execute(self, args):
         requireExactly(1, args)
         try:
             self.pl.set_speed(float(args[0]))
-            if args[0] == "0.5" or args[0] == "0.25" or args[0] == "2.0" or args[0] == "1.5":
+            if args[0] in ("0.5", "0.25", "2", "1.5"):
                 print(Style.BRIGHT + Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + args[0])
             else:
                 print(Style.BRIGHT + Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + "1")
 
         except (TypeError, ValueError):
             raise IncorrectArgument("SPEED must be a number")
+
+
+class DecibelsCommand(Command):
+
+    def __init__(self, pl, name):
+        super().__init__(name)
+        self.pl = pl
+
+    shortDesc = "Check dB level"
+    longDesc = "Check dB level."
+
+    def execute(self, args):
+        requireExactly(0, args)
+
+        # Define the sample rate and duration for the audio stream
+        sample_rate = 44100
+        duration = 5.0
+
+        # Open an audio stream from the default input device
+        stream = sd.InputStream(samplerate=sample_rate, channels=1)
+
+        # Start the audio stream
+        stream.start()
+
+        # Read audio samples from the stream for the specified duration
+        samples = stream.read(int(sample_rate * duration))[0]
+
+        # Stop the audio stream
+        stream.stop()
+
+        # Compute the root mean square (RMS) of the audio samples
+        rms = np.sqrt(np.mean(np.square(samples)))
+
+        # Convert the RMS value to dBFS (decibels relative to full scale)
+        dBFS = 20 * np.log10(rms)
+
+        # Print the dBFS value
+        print("dBFS:", dBFS)

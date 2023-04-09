@@ -8,3 +8,6 @@ yt-dlp==2023.2.17
 pafy==0.5.5
 python-vlc==3.0.18121
 colorama==0.4.6
+sounddevice==0.4.5
+numpy==1.24.1
+reprint==0.6.0

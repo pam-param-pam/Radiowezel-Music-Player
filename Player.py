@@ -34,7 +34,6 @@ class Player(Thread):
         self.musicPos = 0
         self.instance = vlc.Instance("prefer-insecure")
         self.fetching = False
-        self.VLCPlayer = None
         self.vlc_events = None
         self.VLCPlayer = self.instance.media_player_new()
 
