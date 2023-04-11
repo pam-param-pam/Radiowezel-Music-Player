@@ -1,12 +1,16 @@
 import json
 import logging
+import math
 import os
 import threading
 import time
 from threading import Thread
+import matplotlib.pyplot as plt
 
 import jsonpickle
+import numpy as np
 import pafy
+import requests
 import spotipy
 import vlc
 from colorama import Fore, Style
@@ -53,7 +57,54 @@ class Player(Thread):
         logger.debug("Song finished next")
 
         self.currentSong = None
+    def calc_volume(self):
+        if self.currentSong:
+            response = requests.get(self.currentSong.url,
+                                    stream=True)
+            val = 10
+            # Iterate over the chunks of data and write them to a file
+            rms_list = []
+            for chunk in response.iter_content(chunk_size=1024):
+                if chunk:
+                    data_np = np.frombuffer(chunk, dtype=np.int16)
 
+                    rms = np.sqrt(np.mean(np.square(data_np)))
+                    if not math.isnan(rms):
+                        rms_list.append(rms)
+                    if len(rms_list) > 100 * val:
+                        break
+                    percentage = round(len(rms_list) / val) + 1
+                    #if percentage <= 100:
+                    #    sys.stdout.write(u"\u001b[1000D" + str(round(len(rms_list) / val) + 1) + "%")
+                     #   sys.stdout.flush()
+
+            plt.plot(rms_list)
+            plt.title(self.currentSong.title)
+            plt.xlabel('Time (chunks of 1024 samples)')
+            plt.ylabel('RMS Value')
+            plt.show()
+            print(self.currentSong.title)
+            print(max(rms_list))
+            print(min(rms_list))
+            print(sum(rms_list) / len(rms_list))
+
+            # Define a step size for the ranges
+            step = 15
+
+            # Create a list of ranges
+            ranges = [(i, i + step) for i in range(int(min(rms_list)), int(max(rms_list)))]
+
+            # Count the number of values in each range
+            counts = [len([x for x in rms_list if r[0] <= x < r[1]]) for r in ranges]
+
+            # Find the index of the range with the highest count
+            max_count_index = counts.index(max(counts))
+
+            # Get the range with the highest count
+            most_common_range = ranges[max_count_index]
+
+            # Print the most common range and its count
+            print(f"The most common range is {most_common_range} with a count of {max(counts)}")
     def communicateBack(self, message, addTaskId=True):
         if threading.current_thread().getName() == "CONSOLE" and addTaskId:
             m = Style.BRIGHT + Fore.MAGENTA + message["info"]
@@ -194,6 +245,7 @@ class Player(Thread):
 
                             self.currentSong = song
 
+                            self.currentSong.url = url
                             while not self.VLCPlayer.is_playing:
                                 pass
                             self.queue.remove_by_index(0)

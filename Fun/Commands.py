@@ -1,10 +1,10 @@
 import logging
 import sys
 import time
-from reprint import output
+import vlc
 from colorama import Fore, Style
-import sounddevice as sd
-import numpy as np
+from reprint import output
+
 from Fun.ArgsChecker import requireAtLeast, requireExactly, requireNoMoreThan
 from Fun.ArgumentException import IncorrectArgument
 from Fun.Command import Command
@@ -107,6 +107,7 @@ class InfoCommand(Command):
                 op.remove(b)
                 op.remove(c)
             self.flag = True
+
 
 
 class MoveCommand(Command):
@@ -344,40 +345,38 @@ class SpeedCommand(Command):
         except (TypeError, ValueError):
             raise IncorrectArgument("SPEED must be a number")
 
-
-class DecibelsCommand(Command):
+class ClearCommand(Command):
 
     def __init__(self, pl, name):
         super().__init__(name)
         self.pl = pl
 
-    shortDesc = "Check dB level"
-    longDesc = "Check dB level."
+    shortDesc = "Clear queue"
+    longDesc = "Clear queue"
 
     def execute(self, args):
-        requireExactly(0, args)
+        requireNoMoreThan(1, args)
+        if len(args) > 0 and args[0].lower() in ["-f", "--force"]:
+            self.pl.queue.empty()
+            self.pl.notifyAboutQueueChange()
+            print(Fore.MAGENTA + "Cleared queue")
+        else:
+            print(Fore.RED + "Insufficient perms to perform this action.")
 
-        # Define the sample rate and duration for the audio stream
-        sample_rate = 44100
-        duration = 5.0
 
-        # Open an audio stream from the default input device
-        stream = sd.InputStream(samplerate=sample_rate, channels=1)
+class EvalCommand(Command):
 
-        # Start the audio stream
-        stream.start()
+    def __init__(self, pl, name):
+        super().__init__(name)
+        self.pl = pl
 
-        # Read audio samples from the stream for the specified duration
-        samples = stream.read(int(sample_rate * duration))[0]
+    shortDesc = "Eval command"
+    longDesc = "Eval command only for the true pros! No seriously, don't use it if u don't understand it, u will fuck it up."
 
-        # Stop the audio stream
-        stream.stop()
+    def execute(self, args):
+        requireAtLeast(1, args)
+        print(' '.join(args))
+        eval(' '.join(args))
 
-        # Compute the root mean square (RMS) of the audio samples
-        rms = np.sqrt(np.mean(np.square(samples)))
 
-        # Convert the RMS value to dBFS (decibels relative to full scale)
-        dBFS = 20 * np.log10(rms)
 
-        # Print the dBFS value
-        print("dBFS:", dBFS)

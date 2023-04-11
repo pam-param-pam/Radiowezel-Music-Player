@@ -14,13 +14,11 @@ def isNowInTimePeriod(startTime, endTime, nowTime):
 
 
 def isWorkweekNow():
-    return True
     #print(str(datetime.datetime.today().weekday()))
     return str(datetime.datetime.today().weekday()) in "01234"
 
 
 def isBreakNow():
-    return True
     then = datetime.datetime.now(pytz.utc)
     nowTime = then.astimezone(pytz.timezone("Europe/Warsaw")).time()
 
@@ -50,7 +48,6 @@ def isInternet(host="8.8.8.8", port=53, timeout=3):
 
 
 def canPlay():
-
     #print("isBreakNow: " + str(isBreakNow()))
     #print("isInternet: " + str(isInternet()))
     #print("isWorkweekNow(): " + str(isWorkweekNow()))

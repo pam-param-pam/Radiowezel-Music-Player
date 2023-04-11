@@ -2,6 +2,9 @@ import json
 import logging
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from functools import wraps
+from multiprocessing.pool import ThreadPool
 
 import colorama
 import websocket
@@ -18,6 +21,8 @@ pl.start()
 logger = logging.getLogger('Main')
 logger.setLevel(logging.INFO)
 timeBetweenSongs = 0  # seconds
+
+pl.executor = ThreadPoolExecutor(max_workers=5)
 
 
 def process_message(message):
@@ -112,9 +117,7 @@ def on_message(webSocket, message):
     def run(*args):
         process_message(message)
 
-
-    threading.Thread(target=run).start()
-
+    pl.executor.submit(run)
 
 
 def on_ping(webSocket, message):
@@ -221,6 +224,7 @@ while True:
             pl.force_stopped = True
 
         if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing() and not pl.fetching:
+            logger.debug(pl.VLCPlayer.get_state())
             if pl.queue.is_empty():
                 logger.debug("No music to start")
             elif pl.repeat and not pl.force_stopped:

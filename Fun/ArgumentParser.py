@@ -4,13 +4,13 @@ from colorama import Fore, Style
 
 from Fun.ArgumentException import IncorrectArgument
 from Fun.Commands import HelpCommand, RepeatCommand, SeekCommand, MoveCommand, VolumeCommand, QueueCommand, \
-    RemoveCommand, InfoCommand, PauseCommand, PlayCommand, AddCommand, DebugCommand, NextCommand, SpeedCommand, \
-    DecibelsCommand
+    RemoveCommand, InfoCommand, PauseCommand, PlayCommand, AddCommand, DebugCommand, NextCommand, SpeedCommand, ClearCommand, EvalCommand
 
 
 class ArgumentParser:
     def __init__(self, pl):
         self.commands = []
+        self.pl = pl
         self.thread = None
         self.last_command = None
         self.register_command_class(PlayCommand(pl, ("play", "resume")))
@@ -26,7 +26,8 @@ class ArgumentParser:
         self.register_command_class(RepeatCommand(pl, ("repeat",)))
         self.register_command_class(DebugCommand(pl, ("debug",)))
         self.register_command_class(SpeedCommand(pl, ("speed",)))
-        self.register_command_class(DecibelsCommand(pl, ("db",)))
+        self.register_command_class(ClearCommand(pl, ("clear",)))
+        self.register_command_class(EvalCommand(pl, ("eval",)))
         self.register_command_class(HelpCommand(pl, self.commands, ("help",)))
 
     def get_commands(self):
@@ -40,6 +41,7 @@ class ArgumentParser:
         try:
             if self.last_command:
                 self.last_command.on_control_end()
+                self.last_command = None
             input_list = input_str.split()
 
             prefix = input_list[0].lower()
@@ -52,15 +54,15 @@ class ArgumentParser:
 
                     def run():
                         try:
+                            threading.current_thread().setName("CONSOLE")
                             command.execute(args)
                             return
-                        except IncorrectArgument as e:
+                        except Exception as e:
                             print(Style.BRIGHT + Fore.RED + str(e))
                             return
-
-                    threading.Thread(target=run, name="CONSOLE").start()
+                    self.pl.executor.submit(run)
                     return
             else:
-                print(Style.BRIGHT + Fore.RED + "Command not found")
+                print(Style.BRIGHT + Fore.RED + "Command not found\nUse 'help' for help")
         except IndexError:
             print(Style.BRIGHT + Fore.RED + "command not found")
