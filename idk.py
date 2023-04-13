@@ -19,7 +19,7 @@ pl = Player()
 pl.start()
 # logging.basicConfig(filename="mlog.txt", filemode="a", format="%(asctime)s,%(msecs)d %(name)s %(levelname)s $(message)s$", datefmt="%H:%M:%S", level=logging.DEBUG)
 logger = logging.getLogger('Main')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 timeBetweenSongs = 0  # seconds
 
 pl.executor = ThreadPoolExecutor(max_workers=5)
@@ -29,6 +29,7 @@ def process_message(message):
     logger.debug("Processing message: " + message)
 
     jMessage = json.loads(message)
+
     taskId = jMessage["taskId"]
     action = jMessage["action"]
     threading.current_thread().setName(str(taskId))
@@ -114,11 +115,15 @@ def process_message(message):
 
 
 def on_message(webSocket, message):
-    def run(*args):
-        process_message(message)
 
-    pl.executor.submit(run)
+        def run(*args):
+            process_message(message)
 
+        future = pl.executor.submit(run)
+        exception = future.exception()
+        # handle exceptional case
+        if exception:
+            print(exception)
 
 def on_ping(webSocket, message):
     logger.debug("Got a ping! A pong reply has already been automatically sent.")
@@ -133,7 +138,7 @@ def on_open(webSocket):
 
 
 def on_close(webSocket, status_code, reason):
-    logger.debug("ws closed, status: " + status_code + ", reason: " + reason)
+    logger.debug("ws closed, status: " + str(status_code) + ", reason: " + reason)
 
 
 def on_error(webSocket, error):
@@ -170,7 +175,7 @@ def calculate_pos(flag=False):
     else:
         if flag:
             pl.communicateBack(
-                {"worker": "player", "pos": 0, "title": "Nothing is playing", "taskId": 100_000,
+                {"worker": "player", "pos": 0, "status": "success", "title": "Nothing is playing", "taskId": 100_000,
                  "length": "00:00", "seconds": "00:00"}, False)
 
 
