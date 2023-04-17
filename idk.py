@@ -9,6 +9,7 @@ from multiprocessing.pool import ThreadPool
 import colorama
 import websocket
 from colorama import Fore, Style
+from vlc import State
 
 from Fun.ArgumentParser import ArgumentParser
 from Player import Player
@@ -228,8 +229,7 @@ while True:
             pl.pauseFadeout(False)
             pl.force_stopped = True
 
-        if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing() and not pl.fetching:
-            logger.debug(pl.VLCPlayer.get_state())
+        if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing() and not pl.fetching and pl.VLCPlayer.get_state() == State.NothingSpecial:
             if pl.queue.is_empty():
                 logger.debug("No music to start")
             elif pl.repeat and not pl.force_stopped:

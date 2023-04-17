@@ -204,69 +204,78 @@ class Player(Thread):
 
     def play(self, isNext=False):
         logger.debug("Play request acknowledged")
-        self.fetching = True
-        if canPlay():
-            isPlaying = self.VLCPlayer.is_playing()
-            if isPlaying and not isNext:
-                self.communicateBack(
-                    {"worker": "player", "action": "play", "cookie": "rewrite", "status": "warning",
-                     "info": "Already playing"})
 
-            else:
-                if self.stopped and not isNext:  # nie gra bo zatrzymane
-                    self.resume()
-                    self.communicateBack(
-                        {"worker": "player", "action": "play", "cookie": "rewrite", "status": "success",
-                         "info": "Resuming"})
-
-                else:  # nie gra bo nigdy nie gralo
-                    if not self.queue.is_empty():
-                        song = self.queue.peek(0)
-                        if song:
-
-                            self.communicateBack(
-                                {"worker": "player", "action": "play", "cookie": "rewrite", "status": "info",
-                                 "info": "Fetching..."})
-                            logger.debug("1 in player")
-                            video = pafy.new("https://www.youtube.com/watch?v=" + song.id)
-                            logger.debug("2 in player")
-                            best = video.getbestaudio()
-                            logger.debug("3 in player")
-                            url = best.url
-                            logger.debug("4 in player")
-                            media = self.instance.media_new(url)
-                            logger.debug("5 in player")
-                            media.get_mrl()
-                            logger.debug("6 in player")
-                            self.VLCPlayer.set_media(media)
-                            logger.debug("7 in player")
-                            self.VLCPlayer.play()
-                            logger.debug("8 in player")
-
-                            self.currentSong = song
-
-                            self.currentSong.url = url
-                            while not self.VLCPlayer.is_playing:
-                                pass
-                            self.queue.remove_by_index(0)
-                            self.notifyAboutQueueChange()
-                            if isNext:
-                                self.communicateBack(
-                                    {"worker": "player", "cookie": "rewrite", "action": "next", "status": "success",
-                                     "info": "Playing next song"})
-                            else:
-                                self.communicateBack(
-                                    {"worker": "player", "action": "play", "cookie": "rewrite", "status": "success",
-                                     "info": "Playing"})
-
-                    else:
-                        self.communicateBack(
-                            {"worker": "player", "action": "play", "cookie": "rewrite", "status": "warning",
-                             "info": "Queue is empty"})
-        else:
+        if not canPlay():
             self.communicateBack(
                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "error",
                  "info": "Cannot play now"})
+            return
+
+        isPlaying = self.VLCPlayer.is_playing()
+        if isPlaying and not isNext:
+            self.communicateBack(
+                {"worker": "player", "action": "play", "cookie": "rewrite", "status": "warning",
+                 "info": "Already playing"})
+            return
+
+        if self.stopped and not isNext:  # nie gra bo zatrzymane
+            self.resume()
+            self.communicateBack(
+                {"worker": "player", "action": "play", "cookie": "rewrite", "status": "success",
+                 "info": "Resuming"})
+            return
+
+        if self.VLCPlayer.get_state() != vlc.State.NothingSpecial and not isNext:
+            self.communicateBack(
+                {"worker": "player", "action": "play", "cookie": "rewrite", "status": "warning",
+                 "info": "Already Fetching"})
+            return
+
+        else:  # nie gra bo nigdy nie gralo
+            self.fetching = True
+            if not self.queue.is_empty():
+                song = self.queue.peek(0)
+                if song:
+
+                    self.communicateBack(
+                        {"worker": "player", "action": "play", "cookie": "rewrite", "status": "info",
+                         "info": "Fetching..."})
+                    logger.debug("1 in player")
+                    video = pafy.new("https://www.youtube.com/watch?v=" + song.id)
+                    logger.debug("2 in player")
+                    best = video.getbestaudio()
+                    logger.debug("3 in player")
+                    url = best.url
+                    logger.debug("4 in player")
+                    media = self.instance.media_new(url)
+                    logger.debug("5 in player")
+                    media.get_mrl()
+                    logger.debug("6 in player")
+                    self.VLCPlayer.set_media(media)
+                    logger.debug("7 in player")
+                    self.VLCPlayer.play()
+                    logger.debug("8 in player")
+
+                    self.currentSong = song
+
+                    self.currentSong.url = url
+                    while not self.VLCPlayer.is_playing:
+                        pass
+                    self.queue.remove_by_index(0)
+                    self.notifyAboutQueueChange()
+                    if isNext:
+                        self.communicateBack(
+                            {"worker": "player", "cookie": "rewrite", "action": "next", "status": "success",
+                             "info": "Playing next song"})
+                    else:
+                        self.communicateBack(
+                            {"worker": "player", "action": "play", "cookie": "rewrite", "status": "success",
+                             "info": "Playing"})
+            else:
+                self.communicateBack(
+                    {"worker": "player", "action": "play", "cookie": "rewrite", "status": "warning",
+                     "info": "Queue is empty"})
+
         self.fetching = False
 
     def next(self):
