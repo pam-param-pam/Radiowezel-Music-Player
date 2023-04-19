@@ -225,7 +225,7 @@ class Player(Thread):
                  "info": "Resuming"})
             return
 
-        if self.VLCPlayer.get_state() != vlc.State.NothingSpecial and not isNext:
+        if self.VLCPlayer.get_state() == vlc.State.Opening and not isNext:
             self.communicateBack(
                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "warning",
                  "info": "Already Fetching"})

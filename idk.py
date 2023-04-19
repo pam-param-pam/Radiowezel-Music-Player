@@ -229,7 +229,7 @@ while True:
             pl.pauseFadeout(False)
             pl.force_stopped = True
 
-        if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing() and not pl.fetching and pl.VLCPlayer.get_state() == State.NothingSpecial:
+        if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing() and not pl.fetching:
             if pl.queue.is_empty():
                 logger.debug("No music to start")
             elif pl.repeat and not pl.force_stopped:

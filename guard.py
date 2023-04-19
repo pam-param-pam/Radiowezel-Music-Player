@@ -2,7 +2,7 @@ import datetime
 import socket
 import pytz as pytz
 
-breaks = ["8 46 8 55", "9 41 9 50", "10 36 10 45", "11 31 11 40", "12 26 12 45", "13 31 13 50", "14 36 14 40", "15 26 15 30"]
+breaks = ["8 46 8 56", "9 41 9 51", "10 36 10 46", "11 31 11 41", "12 26 12 46", "13 31 13 51", "14 36 14 41", "15 26 15 31"]
 
 
 def isNowInTimePeriod(startTime, endTime, nowTime):
