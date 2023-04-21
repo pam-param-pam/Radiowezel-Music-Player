@@ -246,6 +246,7 @@ class RemoveCommand(Command):
             song = self.pl.queue.peek(int(args[0]) - 1)
             self.pl.queue.remove_by_index(int(args[0]) - 1)
             print(Style.BRIGHT + Fore.MAGENTA + "Removed " + str(song))
+            self.pl.notifyAboutQueueChange()
         except (TypeError, ValueError):
             name = ' '.join(args)
             self.pl.queue.name_remove(name)
