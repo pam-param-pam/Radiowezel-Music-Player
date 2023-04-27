@@ -40,11 +40,7 @@ class SongsQueue:
         try:
             yt = YouTube("https://www.youtube.com/watch?v=" + videoId)
             try:
-                if yt.age_restricted:
-                    raise AgeRestrictedVideo()
 
-                if yt.length > 600:
-                    raise VideoTooLong()
 
                 song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
                 self.songs.append(song)
@@ -120,11 +116,7 @@ class SongsQueue:
     def restore(self, videoId, position):
         yt = YouTube("https://www.youtube.com/watch?v=" + videoId)
         try:
-            if yt.age_restricted:
-                raise AgeRestrictedVideo()
 
-            if yt.length > 600:
-                raise VideoTooLong()
             song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
             self.songs.insert(position, song)
 
