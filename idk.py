@@ -1,15 +1,18 @@
+import base64
 import json
 import logging
 import threading
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor
-from functools import wraps
-from multiprocessing.pool import ThreadPool
 
 import colorama
+import numpy as np
+import pyaudio
 import websocket
 from colorama import Fore, Style
-from vlc import State
+from pydub import AudioSegment
+from pydub.utils import make_chunks
 
 from Fun.ArgumentParser import ArgumentParser
 from Player import Player
@@ -20,10 +23,18 @@ pl = Player()
 pl.start()
 # logging.basicConfig(filename="mlog.txt", filemode="a", format="%(asctime)s,%(msecs)d %(name)s %(levelname)s $(message)s$", datefmt="%H:%M:%S", level=logging.DEBUG)
 logger = logging.getLogger('Main')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 timeBetweenSongs = 0  # seconds
 
 pl.executor = ThreadPoolExecutor(max_workers=5)
+p = pyaudio.PyAudio()
+SAMPLE_RATE = 16000
+CHUNK = 1024
+stream = p.open(format=pyaudio.paInt16,
+                channels=1,
+                rate=SAMPLE_RATE,
+                output=True,
+                frames_per_buffer=CHUNK)
 
 
 def process_message(message):
@@ -74,10 +85,11 @@ def process_message(message):
         elif action == "get_repeat":
             logger.debug("Matched player toggle repeat")
             pl.get_repeat()
-        elif action == "ding-dong":
-            logger.debug("Matched player ding-dong")
-            pl.dingDong()
+        elif action == "ding_dong":
+            logger.debug("Matched player ding dong")
+            pl.ding_dong()
         elif action == "get_pos":
+            logger.debug("Matched player get pos ")
             calculate_pos(True)
         else:
             logger.warning("None player matched")
@@ -111,20 +123,42 @@ def process_message(message):
         else:
             logger.warning("None queue matched")
             pl.communicateBack("Couldn't match any")
+
+    elif jMessage["worker"] == "microphone":
+
+        if action == "mic_audio":
+            logger.debug("Matched microphone mic audio")
+            bytes_data = jMessage["extras"]["data"]
+
+            if bytes_data:
+                audio_data = base64.b64decode(bytes_data)  # Convert Base64 back to bytes
+
+                # Convert bytes to numpy array (assuming 16-bit audio)
+                audio_samples = np.frombuffer(audio_data, dtype=np.int16)
+
+                # Adjust volume (e.g., 0.5 for 50% volume, 1.5 for 150% volume)
+                volume_multiplier = 1
+                adjusted_samples = (audio_samples * volume_multiplier).astype(np.int16)
+
+                # Convert back to bytes
+                adjusted_audio_data = adjusted_samples.tobytes()
+
+                stream.write(adjusted_audio_data)  # Directly play the incoming bytes
+
     else:
         logger.warning("None worker matched")
 
 
 def on_message(webSocket, message):
+    def run(*args):
+        process_message(message)
 
-        def run(*args):
-            process_message(message)
+    future = pl.executor.submit(run)
+    exception = future.exception()
+    # handle exceptional case
+    if exception:
+        print("".join(traceback.TracebackException.from_exception(exception).format()))
 
-        future = pl.executor.submit(run)
-        exception = future.exception()
-        # handle exceptional case
-        if exception:
-            print(exception)
 
 def on_ping(webSocket, message):
     logger.debug("Got a ping! A pong reply has already been automatically sent.")
@@ -145,8 +179,9 @@ def on_close(webSocket, status_code, reason):
 def on_error(webSocket, error):
     logger.error(Fore.RED + "Error happened in ws: %s", error)
 
+ws = websocket.WebSocketApp("ws://192.168.1.14:8000/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
 
-ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
+# ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
                             on_close=on_close,
                             on_error=on_error,
                             on_open=on_open, header={"token": 'UlhkaFEzcGhhbXR2ZDNOcllRPT0==='})

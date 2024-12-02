@@ -18,9 +18,11 @@ from spotipy import SpotifyClientCredentials, SpotifyException
 from websocket import WebSocketConnectionClosedException
 
 import guard
+from Song import Song
 from SongsQueue import SongsQueue
 from exceptions import AgeRestrictedVideo, VideoTooLong
 from guard import canPlay
+from pytube import YouTube
 
 logger = logging.getLogger('Main')
 
@@ -233,19 +235,22 @@ class Player(Thread):
 
         else:  # nie gra bo nigdy nie gralo
             self.fetching = True
-            if not self.queue.is_empty():
+            if not self.queue.is_empty() or True:
                 song = self.queue.peek(0)
+                song = "aaaaaaaaaaa"
+                print(song)
                 if song:
 
                     self.communicateBack(
                         {"worker": "player", "action": "play", "cookie": "rewrite", "status": "info",
                          "info": "Fetching..."})
                     logger.debug("1 in player")
-                    video = pafy.new("https://www.youtube.com/watch?v=" + song.id)
+                    # yt = YouTube("https://www.youtube.com/watch?v=" + song.id)
+                    url = "https://idrive.pamparampam.dev/api/stream/G6Py2uLZFjBEjh2mh7A5XE:1tHOdf:qisGYEu6yh0aFMoJrKmOeeFJpgFJJdW0jSDXpkBY4Ws?inline=True"
+                    print(url)
+
                     logger.debug("2 in player")
-                    best = video.getbestaudio()
                     logger.debug("3 in player")
-                    url = best.url
                     logger.debug("4 in player")
                     media = self.instance.media_new(url)
                     logger.debug("5 in player")
@@ -256,7 +261,7 @@ class Player(Thread):
                     self.VLCPlayer.play()
                     logger.debug("8 in player")
 
-                    self.currentSong = song
+                    self.currentSong = Song(author="aa", title="aa", thumbnail="aaa", length=200, id="aaa")
 
                     self.currentSong.url = url
                     while not self.VLCPlayer.is_playing:
@@ -484,3 +489,13 @@ class Player(Thread):
             self.communicateBack(
                 {"worker": "queue", "action": "restore", "cookie": "rewrite", "status": "warning",
                  "info": "Video too long"})
+
+
+    def ding_dong(self):
+
+        self.pause()
+        mp3_file_path = "assets/ding-dong.mp3"
+        p = vlc.MediaPlayer(mp3_file_path)
+        p.play()
+        time.sleep(4)
+        self.resume()

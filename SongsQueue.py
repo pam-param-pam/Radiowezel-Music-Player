@@ -2,6 +2,7 @@ import logging
 from json import JSONDecodeError
 import os
 import jsonpickle
+import pafy
 from pytube import Search
 from pytube import YouTube
 from pytube.exceptions import RegexMatchError, PytubeError
@@ -38,20 +39,18 @@ class SongsQueue:
 
     def add(self, videoId):
         try:
-            yt = YouTube("https://www.youtube.com/watch?v=" + videoId)
-            try:
+            video = pafy.new("https://www.youtube.com/watch?v=" + videoId)
+            # try:
 
-
-                song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
-                self.songs.append(song)
-
-            except TypeError as e:
-                logging.critical(str(e) + "\nRETRYING...")
-                self.add(videoId)
-
-            except PytubeError as e:
-                logging.critical(str(e) + "\nRETRYING...")
-                self.add(videoId)
+            song = Song(video.videoid, video.title, video.author, video.getbestthumb(), video.length)
+            self.songs.append(song)
+            # except TypeError as e:
+            #     logging.critical(str(e) + "\nRETRYING...")
+            #     self.add(videoId)
+            #
+            # except PytubeError as e:
+            #     logging.critical(str(e) + "\nRETRYING...")
+            #     self.add(videoId)
 
         except RegexMatchError:
             pass

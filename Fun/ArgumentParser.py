@@ -1,10 +1,10 @@
 import threading
+import traceback
 
 from colorama import Fore, Style
 
-from Fun.ArgumentException import IncorrectArgument
 from Fun.Commands import HelpCommand, RepeatCommand, SeekCommand, MoveCommand, VolumeCommand, QueueCommand, \
-    RemoveCommand, InfoCommand, PauseCommand, PlayCommand, AddCommand, DebugCommand, NextCommand, SpeedCommand, ClearCommand, EvalCommand
+    RemoveCommand, InfoCommand, PauseCommand, PlayCommand, AddCommand, NextCommand, SpeedCommand, ClearCommand, EvalCommand, DingDongCommand, LogCommand, AuthorCommand
 
 
 class ArgumentParser:
@@ -24,10 +24,13 @@ class ArgumentParser:
         self.register_command_class(MoveCommand(pl, ("move",)))
         self.register_command_class(SeekCommand(pl, ("seek",)))
         self.register_command_class(RepeatCommand(pl, ("repeat",)))
-        self.register_command_class(DebugCommand(pl, ("debug",)))
+        self.register_command_class(LogCommand(pl, ("log",)))
         self.register_command_class(SpeedCommand(pl, ("speed",)))
         self.register_command_class(ClearCommand(pl, ("clear",)))
         self.register_command_class(EvalCommand(pl, ("eval",)))
+        self.register_command_class(DingDongCommand(pl, ("ding",)))
+        self.register_command_class(AuthorCommand(pl, ("author",)))
+
         self.register_command_class(HelpCommand(pl, self.commands, ("help",)))
 
     def get_commands(self):
@@ -58,7 +61,8 @@ class ArgumentParser:
                             command.execute(args)
                             return
                         except Exception as e:
-                            print(Style.BRIGHT + Fore.RED + str(e))
+                            print("".join(traceback.TracebackException.from_exception(e).format()))
+                            # print(Style.BRIGHT + Fore.RED + str(e))
                             return
                     self.pl.executor.submit(run)
                     return

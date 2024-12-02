@@ -51,6 +51,6 @@ def canPlay():
     #print("isBreakNow: " + str(isBreakNow()))
     #print("isInternet: " + str(isInternet()))
     #print("isWorkweekNow(): " + str(isWorkweekNow()))
-
+    return True
     return bool(isBreakNow() and isInternet() and isWorkweekNow())
 

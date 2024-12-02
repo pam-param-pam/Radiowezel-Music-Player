@@ -17,7 +17,7 @@ class AddCommand(Command):
         self.pl = pl
 
     shortDesc = "Add a song to the queue"
-    longDesc = "Add a song to the queue.\nExample:\n `add song Hero` to add a song called 'Hero'"
+    longDesc = "Add a song to the queue.\nExample:\n `add song skibidi toilet` to add a song called 'skibidi toilet'"
 
     def execute(self, args):
         requireAtLeast(1, args)
@@ -218,12 +218,15 @@ class RepeatCommand(Command):
     longDesc = "Change whatever music should play on repeat.\nExample:\n'repeat' to toggle it or 'repeat true' to explicitly set it to true."
 
     def execute(self, args):
-        requireAtLeast(0, args)
+        requireNoMoreThan(1, args)
+
         try:
             if args[0] == "0" or args[0].lower() == "false":
                 self.pl.repeat = False
             elif args[0] == "1" or args[0].lower() == "true":
                 self.pl.repeat = True
+            else:
+                raise IndexError
             print(Style.BRIGHT + Fore.MAGENTA + "Repeat is now " + str(self.pl.repeat))
 
         except IndexError:
@@ -297,14 +300,14 @@ class PlayCommand(Command):
         self.pl.play()
 
 
-class DebugCommand(Command):
+class LogCommand(Command):
 
     def __init__(self, pl, name):
         super().__init__(name)
         self.pl = pl
 
-    shortDesc = "Change debug level"
-    longDesc = "Change debug level.\n You can pick from 'debug', 'info', 'warning', 'error' and 'critical'."
+    shortDesc = "Change log level"
+    longDesc = "Change log level.\n You can pick from 'debug', 'info', 'warning', 'error' and 'critical'."
 
     def execute(self, args):
         requireExactly(1, args)
@@ -327,18 +330,19 @@ class DebugCommand(Command):
 
 class SpeedCommand(Command):
 
+    acceptableSpeeds = ("0.25", "0.5", "0.75", "1", "1.25", "1.5", "2", "2.5", "3")
+
     def __init__(self, pl, name):
         super().__init__(name)
         self.pl = pl
-
     shortDesc = "Change playback speed"
-    longDesc = "Change playback speed.\n Accepts '0.25', '0.5', '1', '1.5' and '2'."
+    longDesc = f"Change playback speed.\n Accepts {acceptableSpeeds}"
 
     def execute(self, args):
         requireExactly(1, args)
         try:
             self.pl.set_speed(float(args[0]))
-            if args[0] in ("0.5", "0.25", "2", "1.5"):
+            if args[0] in self.acceptableSpeeds:
                 print(Style.BRIGHT + Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + args[0])
             else:
                 print(Style.BRIGHT + Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + "1")
@@ -353,7 +357,7 @@ class ClearCommand(Command):
         self.pl = pl
 
     shortDesc = "Clear queue"
-    longDesc = "Clear queue"
+    longDesc = "Clears ALL songs in queue, this action cannot be undone."
 
     def execute(self, args):
         requireNoMoreThan(1, args)
@@ -380,4 +384,29 @@ class EvalCommand(Command):
         eval(' '.join(args))
 
 
+class DingDongCommand(Command):
 
+    def __init__(self, pl, name):
+        super().__init__(name)
+        self.pl = pl
+
+    shortDesc = "Play Ding Dong"
+    longDesc = "Plays the Ding Dong sound."
+
+    def execute(self, args):
+        requireExactly(0, args)
+        self.pl.ding_dong()
+
+
+class AuthorCommand(Command):
+
+    def __init__(self, pl, name):
+        super().__init__(name)
+        self.pl = pl
+
+    shortDesc = "List the Author"
+    longDesc = "This brilliant command will tell you everything you need to know about the genius that created this software."
+
+    def execute(self, args):
+        requireExactly(0, args)
+        print(Fore.MAGENTA + "Jebać konfe, kocham Alternatywki i placki ziemniaczane, nie wiem co jeszcze moge napisać, wyslijcie mi zdj swojej karty kredytowej UwU")
