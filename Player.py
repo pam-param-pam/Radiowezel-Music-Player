@@ -216,7 +216,7 @@ class Player(Thread):
         logger.debug("Resume request acknowledged")
 
         state = self.state.get_state()
-        if canPlay() and state != StateType.PAUSED:
+        if canPlay() and state != StateType.FORCE_PAUSED:
             self.VLCPlayer.set_pause(False)
             self.state.set_state(StateType.PLAYING)
 
@@ -224,7 +224,7 @@ class Player(Thread):
         logger.debug("Play request acknowledged")
 
         state = self.state.get_state()
-        if not canPlay() or state in (StateType.FORCE_STOPPED, StateType.FORCE_PAUSED):
+        if not canPlay() or state == StateType.FORCE_STOPPED:
             self.communicateBack(
                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "error",
                  "info": "Cannot play now"})
@@ -558,7 +558,7 @@ class Player(Thread):
         audio_samples = np.frombuffer(audio_data, dtype=np.int16)
 
         # Adjust volume (e.g., 0.5 for 50% volume, 1.5 for 150% volume)
-        volume_multiplier = 1
+        volume_multiplier = self.VLCPlayer.audio_get_volume() / 50
         adjusted_samples = (audio_samples * volume_multiplier).astype(np.int16)
 
         # Convert back to bytes
