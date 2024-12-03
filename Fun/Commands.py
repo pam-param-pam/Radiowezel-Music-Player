@@ -2,10 +2,11 @@ import logging
 import sys
 import time
 import vlc
+from StateManager import StateType
 from colorama import Fore, Style
 from reprint import output
 
-from Fun.ArgsChecker import requireAtLeast, requireExactly, requireNoMoreThan
+from Fun.ArgsChecker import requireAtLeast, requireExactly, requireNoMoreThan, parseBool
 from Fun.ArgumentException import IncorrectArgument
 from Fun.Command import Command
 from Player import Player
@@ -211,19 +212,13 @@ class RepeatCommand(Command):
 
     def execute(self, args):
         requireNoMoreThan(1, args)
-
         try:
-            if args[0] == "0" or args[0].lower() == "false":
-                self.pl.repeat = False
-            elif args[0] == "1" or args[0].lower() == "true":
-                self.pl.repeat = True
-            else:
-                raise IndexError
-            print(Style.BRIGHT + Fore.MAGENTA + "Repeat is now " + str(self.pl.repeat))
+            repeat = parseBool(args[0])
+        except (IndexError, TypeError):
+            repeat = self.pl.state.repeat
 
-        except IndexError:
-            self.pl.repeat = not self.pl.repeat
-            print(Style.BRIGHT + Fore.MAGENTA + "Repeat is now " + str(self.pl.repeat))
+        self.pl.state.repeat = repeat
+        print(Style.BRIGHT + Fore.MAGENTA + "Repeat is now " + str(self.pl.repeat))
 
 
 class RemoveCommand(Command):
@@ -389,6 +384,22 @@ class DingDongCommand(Command):
         requireExactly(0, args)
         self.pl.ding_dong()
 
+class FakeMicrophoneCommand(Command):
+
+    def __init__(self, pl: Player, name):
+        super().__init__(name)
+        self.pl = pl
+
+    shortDesc = ""
+    longDesc = ""
+
+    def execute(self, args):
+        requireExactly(1, args)
+        state = parseBool(args[0])
+        if state:
+            self.pl.start_microphone()
+        if not state:
+            self.pl.stop_microphone()
 
 class AuthorCommand(Command):
 

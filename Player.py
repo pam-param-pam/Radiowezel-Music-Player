@@ -269,7 +269,7 @@ class Player(Thread):
                          "info": "Fetching..."})
                     logger.debug("1 in player")
                     # yt = YouTube("https://www.youtube.com/watch?v=" + song.id)
-                    url = "https://idrive.pamparampam.dev/api/stream/2LdGj7vhwb4MQaed2jKkPa:1tIYTQ:TIglhi5SVGW7PKWUgJRLr78_Q-nBfA6w8XPntRugPJo?inline=True"
+                    url = "https://idrive.pamparampam.dev/api/stream/G6Py2uLZFjBEjh2mh7A5XE:1tIaam:11hnqcm1VLveCeiuiVY0ow2UYKb0lxgivNepmFmQ1ek?inline=True"
                     print(url)
 
                     logger.debug("2 in player")
@@ -534,7 +534,7 @@ class Player(Thread):
                                         frames_per_buffer=CHUNK)
 
         self.pause()
-        self.state.set_state(StateType.FORCE_PAUSED)
+        self.state.set_state(StateType.MICROPHONE_ON)
         mp3_file_path = "assets/ding-dong.mp3"
         p = vlc.MediaPlayer(mp3_file_path)
         p.play()
@@ -546,10 +546,12 @@ class Player(Thread):
         self.pyAudio = None
         self.stream.stop_stream()
         self.stream = None
-        self.state.set_state(StateType.IDLE)
 
-        if not self.state.get_state() != StateType.PAUSED:
-            self.play()
+        # if not self.state.get_state() != StateType.PAUSED:
+        #     self.play()
+        self.state.set_state(StateType.IDLE)
+        self.resume()
+        time.sleep(60)
 
     def process_microphone(self, bytes_data):
         audio_data = base64.b64decode(bytes_data)  # Convert Base64 back to bytes
