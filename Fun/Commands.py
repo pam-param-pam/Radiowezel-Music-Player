@@ -8,6 +8,7 @@ from reprint import output
 from Fun.ArgsChecker import requireAtLeast, requireExactly, requireNoMoreThan
 from Fun.ArgumentException import IncorrectArgument
 from Fun.Command import Command
+from Player import Player
 
 
 class AddCommand(Command):
@@ -55,22 +56,13 @@ class HelpCommand(Command):
 
 class InfoCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name):
         super().__init__(name)
         self.pl = pl
 
     shortDesc = "Get current player state"
     longDesc = "Get current player state. Including current song, its position in seconds and whatever player is stopped or playing."
 
-    def get_state(self):
-        state = "Unknown..."
-        if self.pl.stopped:
-            state = "stopped..."
-        if self.pl.force_stopped:
-            state = "force stopped"
-        if self.pl.VLCPlayer.is_playing():
-            state = "Playing..."
-        return state
 
     def execute(self, args):
         requireExactly(0, args)
@@ -78,20 +70,20 @@ class InfoCommand(Command):
         with output() as op:
             while self.flag:
                 a = "{BRIGHT}{LM}Current song: {LB}{song}".format(
-                    song=self.pl.currentSong,
+                    song=self.pl.state.currentSong,
                     BRIGHT=Style.BRIGHT,
                     LM=Fore.LIGHTMAGENTA_EX,
                     LB=Fore.LIGHTBLUE_EX)
                 b = "{BRIGHT}{LM}position: {LB}{position}".format(
                     position=self.pl.formatSeconds(
                         round(self.pl.VLCPlayer.get_time() / 1000)) + "/" + self.pl.formatSeconds(
-                        round(self.pl.currentSong.length) if self.pl.currentSong is not None else 0),
+                        round(self.pl.state.currentSong.length) if self.pl.state.currentSong is not None else 0),
                     BRIGHT=Style.BRIGHT,
                     LM=Fore.LIGHTMAGENTA_EX,
                     LB=Fore.LIGHTBLUE_EX)
 
                 c = "{BRIGHT}{LM}State: {LB}{state}".format(
-                    state=self.get_state(),
+                    state=self.pl.state.getHumanState(),
                     BRIGHT=Style.BRIGHT,
                     LM=Fore.LIGHTMAGENTA_EX,
                     LB=Fore.LIGHTBLUE_EX)

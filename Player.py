@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import math
@@ -10,6 +11,7 @@ import matplotlib.pyplot as plt
 import jsonpickle
 import numpy as np
 import pafy
+import pyaudio
 import requests
 import spotipy
 import vlc
@@ -20,9 +22,9 @@ from websocket import WebSocketConnectionClosedException
 import guard
 from Song import Song
 from SongsQueue import SongsQueue
+from StateManager import StateManager, StateType
 from exceptions import AgeRestrictedVideo, VideoTooLong
 from guard import canPlay
-from pytube import YouTube
 
 logger = logging.getLogger('Main')
 
@@ -31,82 +33,91 @@ class Player(Thread):
 
     def __init__(self):
         Thread.__init__(self)
-        self.repeat = False
-        self.force_stopped = False
+
         self.comms = None
-        self.stopped = False
         self.queue = SongsQueue()
-        self.currentSong = None
-        self.musicPos = 0
         self.instance = vlc.Instance("prefer-insecure")
-        self.fetching = False
         self.vlc_events = None
         self.VLCPlayer = self.instance.media_player_new()
 
         self.vlc_events = self.VLCPlayer.event_manager()
         self.vlc_events.event_attach(vlc.EventType.MediaPlayerEndReached, self.song_finished_callback)
 
+        self.pyAudio = None
+        self.stream = None
+
+        self.state = StateManager()
+
+        # self.repeat = False
+        # self.force_stopped = False
+        # self.fetching = False
+        # self.currentSong = None
+        # self.musicPos = 0
+        # self.stopped = False
+
     def run(self):
         logger.info("Hello from Player")
 
     def song_finished_callback(self, data):
-
         logger.debug("Song finished")
-        if self.repeat:
+        self.state.set_state(StateType.SONG_FINISHED)
+        if self.state.repeat:
             logger.debug("Song finished repeat")
             self.restore_in_queue(self.currentSong.id, 0)
 
         logger.debug("Song finished next")
 
-        self.currentSong = None
-    def calc_volume(self):
-        if self.currentSong:
-            response = requests.get(self.currentSong.url,
-                                    stream=True)
-            val = 10
-            # Iterate over the chunks of data and write them to a file
-            rms_list = []
-            for chunk in response.iter_content(chunk_size=1024):
-                if chunk:
-                    data_np = np.frombuffer(chunk, dtype=np.int16)
+        self.state.currentSong = None
 
-                    rms = np.sqrt(np.mean(np.square(data_np)))
-                    if not math.isnan(rms):
-                        rms_list.append(rms)
-                    if len(rms_list) > 100 * val:
-                        break
-                    percentage = round(len(rms_list) / val) + 1
-                    #if percentage <= 100:
-                    #    sys.stdout.write(u"\u001b[1000D" + str(round(len(rms_list) / val) + 1) + "%")
-                     #   sys.stdout.flush()
+    # def calc_volume(self):
+    #     if self.currentSong:
+    #         response = requests.get(self.state.currentSong.url,
+    #                                 stream=True)
+    #         val = 10
+    #         # Iterate over the chunks of data and write them to a file
+    #         rms_list = []
+    #         for chunk in response.iter_content(chunk_size=1024):
+    #             if chunk:
+    #                 data_np = np.frombuffer(chunk, dtype=np.int16)
+    #
+    #                 rms = np.sqrt(np.mean(np.square(data_np)))
+    #                 if not math.isnan(rms):
+    #                     rms_list.append(rms)
+    #                 if len(rms_list) > 100 * val:
+    #                     break
+    #                 percentage = round(len(rms_list) / val) + 1
+    #                 # if percentage <= 100:
+    #                 #    sys.stdout.write(u"\u001b[1000D" + str(round(len(rms_list) / val) + 1) + "%")
+    #                 #   sys.stdout.flush()
+    #
+    #         plt.plot(rms_list)
+    #         plt.title(self.currentSong.title)
+    #         plt.xlabel('Time (chunks of 1024 samples)')
+    #         plt.ylabel('RMS Value')
+    #         plt.show()
+    #         print(self.currentSong.title)
+    #         print(max(rms_list))
+    #         print(min(rms_list))
+    #         print(sum(rms_list) / len(rms_list))
+    #
+    #         # Define a step size for the ranges
+    #         step = 15
+    #
+    #         # Create a list of ranges
+    #         ranges = [(i, i + step) for i in range(int(min(rms_list)), int(max(rms_list)))]
+    #
+    #         # Count the number of values in each range
+    #         counts = [len([x for x in rms_list if r[0] <= x < r[1]]) for r in ranges]
+    #
+    #         # Find the index of the range with the highest count
+    #         max_count_index = counts.index(max(counts))
+    #
+    #         # Get the range with the highest count
+    #         most_common_range = ranges[max_count_index]
+    #
+    #         # Print the most common range and its count
+    #         print(f"The most common range is {most_common_range} with a count of {max(counts)}")
 
-            plt.plot(rms_list)
-            plt.title(self.currentSong.title)
-            plt.xlabel('Time (chunks of 1024 samples)')
-            plt.ylabel('RMS Value')
-            plt.show()
-            print(self.currentSong.title)
-            print(max(rms_list))
-            print(min(rms_list))
-            print(sum(rms_list) / len(rms_list))
-
-            # Define a step size for the ranges
-            step = 15
-
-            # Create a list of ranges
-            ranges = [(i, i + step) for i in range(int(min(rms_list)), int(max(rms_list)))]
-
-            # Count the number of values in each range
-            counts = [len([x for x in rms_list if r[0] <= x < r[1]]) for r in ranges]
-
-            # Find the index of the range with the highest count
-            max_count_index = counts.index(max(counts))
-
-            # Get the range with the highest count
-            most_common_range = ranges[max_count_index]
-
-            # Print the most common range and its count
-            print(f"The most common range is {most_common_range} with a count of {max(counts)}")
     def communicateBack(self, message, addTaskId=True):
         if threading.current_thread().getName() == "CONSOLE" and addTaskId:
             m = Style.BRIGHT + Fore.MAGENTA + message["info"]
@@ -186,6 +197,8 @@ class Player(Thread):
         return str(minutes) + ":" + str(seconds)
 
     def set_speed(self, speed):
+        logger.debug("set speed request acknowledged")
+
         if speed == 0.5:
             self.VLCPlayer.set_rate(0.7)
         elif speed == 0.25:
@@ -197,20 +210,30 @@ class Player(Thread):
         else:
             self.VLCPlayer.set_rate(1)
 
+        self.state.speed = speed
+
     def resume(self):
         logger.debug("Resume request acknowledged")
 
-        if canPlay():
+        state = self.state.get_state()
+        if canPlay() and state != StateType.PAUSED:
             self.VLCPlayer.set_pause(False)
-            self.stopped = False
+            self.state.set_state(StateType.PLAYING)
 
     def play(self, isNext=False):
         logger.debug("Play request acknowledged")
 
-        if not canPlay():
+        state = self.state.get_state()
+        if not canPlay() or state in (StateType.FORCE_STOPPED, StateType.FORCE_PAUSED):
             self.communicateBack(
                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "error",
                  "info": "Cannot play now"})
+            return
+
+        if state == StateType.MICROPHONE_ON:
+            self.communicateBack(
+                {"worker": "player", "action": "play", "cookie": "rewrite", "status": "error",
+                 "info": "Microphone is ON"})
             return
 
         isPlaying = self.VLCPlayer.is_playing()
@@ -220,7 +243,7 @@ class Player(Thread):
                  "info": "Already playing"})
             return
 
-        if self.stopped and not isNext:  # nie gra bo zatrzymane
+        if self.state.get_state() == StateType.PAUSED and not isNext:  # nie gra bo zatrzymane
             self.resume()
             self.communicateBack(
                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "success",
@@ -234,7 +257,7 @@ class Player(Thread):
             return
 
         else:  # nie gra bo nigdy nie gralo
-            self.fetching = True
+            self.state.set_state(StateType.FETCHING)
             if not self.queue.is_empty() or True:
                 song = self.queue.peek(0)
                 song = "aaaaaaaaaaa"
@@ -246,7 +269,7 @@ class Player(Thread):
                          "info": "Fetching..."})
                     logger.debug("1 in player")
                     # yt = YouTube("https://www.youtube.com/watch?v=" + song.id)
-                    url = "https://idrive.pamparampam.dev/api/stream/G6Py2uLZFjBEjh2mh7A5XE:1tHOdf:qisGYEu6yh0aFMoJrKmOeeFJpgFJJdW0jSDXpkBY4Ws?inline=True"
+                    url = "https://idrive.pamparampam.dev/api/stream/2LdGj7vhwb4MQaed2jKkPa:1tIYTQ:TIglhi5SVGW7PKWUgJRLr78_Q-nBfA6w8XPntRugPJo?inline=True"
                     print(url)
 
                     logger.debug("2 in player")
@@ -261,13 +284,16 @@ class Player(Thread):
                     self.VLCPlayer.play()
                     logger.debug("8 in player")
 
-                    self.currentSong = Song(author="aa", title="aa", thumbnail="aaa", length=200, id="aaa")
+                    self.state.currentSong = Song(author="aa", title="aa", thumbnail="aaa", length=200, id="aaa")
 
-                    self.currentSong.url = url
+                    self.state.currentSong.url = url
                     while not self.VLCPlayer.is_playing:
                         pass
-                    self.queue.remove_by_index(0)
+
+                    # self.queue.remove_by_index(0)
                     self.notifyAboutQueueChange()
+                    self.state.set_state(StateType.PLAYING)
+
                     if isNext:
                         self.communicateBack(
                             {"worker": "player", "cookie": "rewrite", "action": "next", "status": "success",
@@ -276,12 +302,11 @@ class Player(Thread):
                         self.communicateBack(
                             {"worker": "player", "action": "play", "cookie": "rewrite", "status": "success",
                              "info": "Playing"})
+
             else:
                 self.communicateBack(
                     {"worker": "player", "action": "play", "cookie": "rewrite", "status": "warning",
                      "info": "Queue is empty"})
-
-        self.fetching = False
 
     def next(self):
         self.play(True)
@@ -289,7 +314,7 @@ class Player(Thread):
     def toggle_repeat(self):
         logger.debug("Toggle repeat request acknowledged")
 
-        self.repeat = not self.repeat
+        self.state.repeat = not self.state.repeat
         self.communicateBack(
             {"worker": "player", "action": "toggle_repeat", "cookie": "rewrite", "status": "success", "info": "Toggled"})
 
@@ -298,7 +323,7 @@ class Player(Thread):
 
         self.VLCPlayer.set_time(0)
 
-    def pauseFadeout(self, pause=True):
+    def pauseFadeout(self):
         logger.debug("Pause fadeout request acknowledged")
         if self.VLCPlayer.is_playing():
             self.communicateBack(
@@ -311,8 +336,8 @@ class Player(Thread):
                 time.sleep(0.03)
 
             self.VLCPlayer.set_pause(True)
-            if pause:
-                self.stopped = True
+            self.state.set_state(StateType.PAUSED)
+
             self.VLCPlayer.audio_set_volume(volume)
             self.communicateBack(
                 {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success", "info": "Paused"})
@@ -327,7 +352,7 @@ class Player(Thread):
 
         if self.VLCPlayer.is_playing():
             self.VLCPlayer.set_pause(True)
-            self.stopped = True
+            self.state.set_state(StateType.PAUSED)
             self.communicateBack(
                 {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success", "info": "Paused"})
 
@@ -370,7 +395,7 @@ class Player(Thread):
 
     def get_repeat(self):
         self.communicateBack(
-            {"worker": "queue", "action": "get_repeat", "cookie": "rewrite", "status": "success", "state": self.repeat})
+            {"worker": "queue", "action": "get_repeat", "cookie": "rewrite", "status": "success", "state": self.state.repeat})
 
     def add_to_queue(self, videoId):
         logger.debug("Add to queue request acknowledged")
@@ -490,12 +515,54 @@ class Player(Thread):
                 {"worker": "queue", "action": "restore", "cookie": "rewrite", "status": "warning",
                  "info": "Video too long"})
 
-
     def ding_dong(self):
-
         self.pause()
         mp3_file_path = "assets/ding-dong.mp3"
         p = vlc.MediaPlayer(mp3_file_path)
         p.play()
         time.sleep(4)
         self.resume()
+
+    def start_microphone(self):
+        self.pyAudio = pyaudio.PyAudio()
+        SAMPLE_RATE = 16000
+        CHUNK = 1024
+        self.stream = self.pyAudio.open(format=pyaudio.paInt16,
+                                        channels=1,
+                                        rate=SAMPLE_RATE,
+                                        output=True,
+                                        frames_per_buffer=CHUNK)
+
+        self.pause()
+        self.state.set_state(StateType.FORCE_PAUSED)
+        mp3_file_path = "assets/ding-dong.mp3"
+        p = vlc.MediaPlayer(mp3_file_path)
+        p.play()
+        self.communicateBack(
+            {"worker": "microphone", "action": "start", "cookie": "rewrite", "status": "success",
+             "info": "Started Microphone"})
+
+    def stop_microphone(self):
+        self.pyAudio = None
+        self.stream.stop_stream()
+        self.stream = None
+        self.state.set_state(StateType.IDLE)
+
+        if not self.state.get_state() != StateType.PAUSED:
+            self.play()
+
+    def process_microphone(self, bytes_data):
+        audio_data = base64.b64decode(bytes_data)  # Convert Base64 back to bytes
+
+        # Convert bytes to numpy array (assuming 16-bit audio)
+        audio_samples = np.frombuffer(audio_data, dtype=np.int16)
+
+        # Adjust volume (e.g., 0.5 for 50% volume, 1.5 for 150% volume)
+        volume_multiplier = 1
+        adjusted_samples = (audio_samples * volume_multiplier).astype(np.int16)
+
+        # Convert back to bytes
+        adjusted_audio_data = adjusted_samples.tobytes()
+
+        self.stream.write(adjusted_audio_data)  # Directly play the incoming bytes
+

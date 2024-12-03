@@ -14,7 +14,6 @@ def isNowInTimePeriod(startTime, endTime, nowTime):
 
 
 def isWorkweekNow():
-    #print(str(datetime.datetime.today().weekday()))
     return str(datetime.datetime.today().weekday()) in "01234"
 
 

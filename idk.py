@@ -8,14 +8,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 import colorama
 import numpy as np
-import pyaudio
 import websocket
 from colorama import Fore, Style
-from pydub import AudioSegment
-from pydub.utils import make_chunks
 
 from Fun.ArgumentParser import ArgumentParser
 from Player import Player
+from StateManager import StateType
 from guard import canPlay
 
 pl = Player()
@@ -26,15 +24,7 @@ logger = logging.getLogger('Main')
 logger.setLevel(logging.INFO)
 timeBetweenSongs = 0  # seconds
 
-pl.executor = ThreadPoolExecutor(max_workers=5)
-p = pyaudio.PyAudio()
-SAMPLE_RATE = 16000
-CHUNK = 1024
-stream = p.open(format=pyaudio.paInt16,
-                channels=1,
-                rate=SAMPLE_RATE,
-                output=True,
-                frames_per_buffer=CHUNK)
+pl.executor = ThreadPoolExecutor(max_workers=10)
 
 
 def process_message(message):
@@ -125,25 +115,18 @@ def process_message(message):
             pl.communicateBack("Couldn't match any")
 
     elif jMessage["worker"] == "microphone":
+        if action == "start":
+            logger.debug("Matched microphone start")
+            pl.start_microphone()
 
-        if action == "mic_audio":
+        elif action == "mic_audio":
             logger.debug("Matched microphone mic audio")
             bytes_data = jMessage["extras"]["data"]
+            pl.process_microphone(bytes_data)
 
-            if bytes_data:
-                audio_data = base64.b64decode(bytes_data)  # Convert Base64 back to bytes
-
-                # Convert bytes to numpy array (assuming 16-bit audio)
-                audio_samples = np.frombuffer(audio_data, dtype=np.int16)
-
-                # Adjust volume (e.g., 0.5 for 50% volume, 1.5 for 150% volume)
-                volume_multiplier = 1
-                adjusted_samples = (audio_samples * volume_multiplier).astype(np.int16)
-
-                # Convert back to bytes
-                adjusted_audio_data = adjusted_samples.tobytes()
-
-                stream.write(adjusted_audio_data)  # Directly play the incoming bytes
+        elif action == "stop":
+            logger.debug("Matched microphone stop")
+            pl.stop_microphone()
 
     else:
         logger.warning("None worker matched")
@@ -179,9 +162,10 @@ def on_close(webSocket, status_code, reason):
 def on_error(webSocket, error):
     logger.error(Fore.RED + "Error happened in ws: %s", error)
 
+
 ws = websocket.WebSocketApp("ws://192.168.1.14:8000/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
 
-# ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
+                            # ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
                             on_close=on_close,
                             on_error=on_error,
                             on_open=on_open, header={"token": 'UlhkaFEzcGhhbXR2ZDNOcllRPT0==='})
@@ -189,24 +173,14 @@ ws = websocket.WebSocketApp("ws://192.168.1.14:8000/player", on_message=on_messa
 
 def calculate_pos(flag=False):
     length = pl.get_length()
-    if pl.currentSong and length:
+    if pl.state.currentSong and length:
 
         FormattedPos = pl.formatSeconds(round(pl.VLCPlayer.get_time() / 1000))
         FormattedLength = pl.formatSeconds(length / 1000)
         b = round((pl.VLCPlayer.get_time() * 10000) / length)
-        if pl.VLCPlayer.is_playing():
-
-            pl.communicateBack(
-                {"worker": "player", "pos": b, "title": pl.currentSong.title, "taskId": 100_000,
-                 "length": FormattedLength, "seconds": FormattedPos}, False)
-
-        else:
-            if pl.stopped or pl.force_stopped:
-                if flag:
-                    pl.communicateBack(
-                        {"worker": "player", "pos": b, "title": "Stopped(" + pl.currentSong.title + ")",
-                         "taskId": 100_000,
-                         "length": FormattedLength, "seconds": FormattedPos}, False)
+        pl.communicateBack(
+            {"worker": "player", "pos": b, "title": pl.state.getStateMessage(), "taskId": 100_000,
+             "length": FormattedLength, "seconds": FormattedPos}, False)
 
     else:
         if flag:
@@ -261,16 +235,17 @@ while True:
 
         if not canPlay() and not pl.force_stopped:
             logger.info("Break is over! Stopping music...")
-            pl.pauseFadeout(False)
+            pl.pauseFadeout()
             pl.force_stopped = True
 
-        if canPlay() and not pl.stopped and not pl.VLCPlayer.is_playing() and not pl.fetching:
+        state = pl.state.get_state()
+        if canPlay() and not pl.VLCPlayer.is_playing() and state not in (StateType.PAUSED, StateType.FETCHING, StateType.FORCE_STOPPED, StateType.MICROPHONE_ON):
             if pl.queue.is_empty():
                 logger.debug("No music to start")
-            elif pl.repeat and not pl.force_stopped:
+            elif pl.state.repeat and not pl.force_stopped:
                 logger.debug("Repeating music")
                 pl.play()
-            elif not pl.repeat and not pl.force_stopped:
+            elif not pl.state.repeat and not pl.force_stopped:
                 logger.debug("Playing next song")
                 pl.play()
             else:
