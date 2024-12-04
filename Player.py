@@ -1,18 +1,14 @@
 import base64
 import json
 import logging
-import math
 import os
 import threading
 import time
 from threading import Thread
-import matplotlib.pyplot as plt
 
 import jsonpickle
 import numpy as np
-import pafy
 import pyaudio
-import requests
 import spotipy
 import vlc
 from colorama import Fore, Style
@@ -22,7 +18,7 @@ from websocket import WebSocketConnectionClosedException
 import guard
 from Song import Song
 from SongsQueue import SongsQueue
-from StateManager import StateManager, StateType
+from StateManager import StateManager, StateType, ActiveType
 from exceptions import AgeRestrictedVideo, VideoTooLong
 from guard import canPlay
 
@@ -63,7 +59,7 @@ class Player(Thread):
         self.state.set_state(StateType.SONG_FINISHED)
         if self.state.repeat:
             logger.debug("Song finished repeat")
-            self.restore_in_queue(self.currentSong.id, 0)
+            self.restore_in_queue(self.state.currentSong.id, 0)
 
         logger.debug("Song finished next")
 
@@ -119,7 +115,7 @@ class Player(Thread):
     #         print(f"The most common range is {most_common_range} with a count of {max(counts)}")
 
     def communicateBack(self, message, addTaskId=True):
-        if threading.current_thread().getName() == "CONSOLE" and addTaskId:
+        if threading.current_thread().name == "CONSOLE" and addTaskId:
             m = Style.BRIGHT + Fore.MAGENTA + message["info"]
             if message["status"] == "info":
                 m += Fore.LIGHTBLUE_EX
@@ -127,6 +123,8 @@ class Player(Thread):
                 m += Fore.MAGENTA
             elif message["status"] == "warning":
                 m += Fore.YELLOW
+            elif message["status"] == "error":
+                m += Fore.RED
             else:
                 m += Fore.LIGHTWHITE_EX
 
@@ -134,7 +132,7 @@ class Player(Thread):
 
         else:
             if addTaskId:
-                message["taskId"] = threading.current_thread().getName()
+                message["taskId"] = threading.current_thread().name
             try:
                 if self.comms:
 
@@ -215,8 +213,7 @@ class Player(Thread):
     def resume(self):
         logger.debug("Resume request acknowledged")
 
-        state = self.state.get_state()
-        if canPlay() and state != StateType.FORCE_PAUSED:
+        if self.state.can_play():
             self.VLCPlayer.set_pause(False)
             self.state.set_state(StateType.PLAYING)
 
@@ -224,16 +221,10 @@ class Player(Thread):
         logger.debug("Play request acknowledged")
 
         state = self.state.get_state()
-        if not canPlay() or state == StateType.FORCE_STOPPED:
+        if not self.state.can_play():
             self.communicateBack(
                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "error",
                  "info": "Cannot play now"})
-            return
-
-        if state == StateType.MICROPHONE_ON:
-            self.communicateBack(
-                {"worker": "player", "action": "play", "cookie": "rewrite", "status": "error",
-                 "info": "Microphone is ON"})
             return
 
         isPlaying = self.VLCPlayer.is_playing()
@@ -243,7 +234,7 @@ class Player(Thread):
                  "info": "Already playing"})
             return
 
-        if self.state.get_state() == StateType.PAUSED and not isNext:  # nie gra bo zatrzymane
+        if state == StateType.PAUSED and not isNext:  # nie gra bo zatrzymane
             self.resume()
             self.communicateBack(
                 {"worker": "player", "action": "play", "cookie": "rewrite", "status": "success",
@@ -431,9 +422,9 @@ class Player(Thread):
             logging.warning("Permission denied: 'queue.json'")
 
         json_str = [ob.__dict__ for ob in self.queue.songs]
-        var = {"taskId": 100_000, "status": "success", "info": "all working fine", "queue": json_str}
+        message = {"taskId": 100_000, "status": "success", "info": "all working fine", "queue": json_str}
 
-        self.communicateBack(var, False)
+        self.communicateBack(message, addTaskId=False)
 
     def remove_from_queue(self, videoId):
         logger.debug("Remove from queue request acknowledged")
@@ -534,7 +525,7 @@ class Player(Thread):
                                         frames_per_buffer=CHUNK)
 
         self.pause()
-        self.state.set_state(StateType.MICROPHONE_ON)
+        self.state.set_active(ActiveType.MICROPHONE)
         mp3_file_path = "assets/ding-dong.mp3"
         p = vlc.MediaPlayer(mp3_file_path)
         p.play()

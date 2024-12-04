@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 import threading
@@ -7,7 +6,6 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 
 import colorama
-import numpy as np
 import websocket
 from colorama import Fore, Style
 
