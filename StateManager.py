@@ -16,6 +16,7 @@ class StateType(Enum):
     FETCHING = 7
     SONG_FINISHED = 8
     IDLE = 9
+    FORCE_PAUSING = 10
 
 
 class ActiveType(Enum):
@@ -34,6 +35,7 @@ class StateManager:
         self.song_position: Union[int, None] = None
         self.volume: Union[int, None] = None
         self.speed: Union[int, None] = None
+        self._previous_state: Union[StateType, None] = None
 
     def __str__(self) -> str:
         return self.getStateMessage()
@@ -42,17 +44,25 @@ class StateManager:
         return self.getStateMessage()
 
     def can_play(self):
-        return canPlay() and self._state not in (StateType.FORCE_PAUSED, StateType.FORCE_STOPPED) and self._active == ActiveType.PLAYER
+        return canPlay() and self._state not in (StateType.FORCE_PAUSED, StateType.FORCE_STOPPED, StateType.FORCE_PAUSING) and self._active == ActiveType.PLAYER
 
-    def can(self):
-        return False
+    def canBreakStartMusic(self):
+        return canPlay() and self._active == ActiveType.PLAYER and self._state != StateType.PAUSED
 
     def getStateMessage(self) -> str:
+
+        if self._active == ActiveType.MICROPHONE:
+            return f"Microphone is ON"
+        if self._active == ActiveType.DING_DONG:
+            return f"Ding Dong"
+
+        if not self.currentSong:
+            return "Nothing is playing"
+
         if self._state == StateType.PLAYING:
             return self.currentSong.title
         if self._state.PAUSED:
             return f"({self.getHumanState()}) {self.currentSong.title}"
-
         else:
             return self.getHumanState()
 
@@ -60,6 +70,7 @@ class StateManager:
         return self._state.name.replace("_", " ").capitalize()
 
     def set_state(self, state: StateType):
+        self._previous_state = self.get_state()
         self._state = state
 
     def get_state(self):
@@ -70,4 +81,15 @@ class StateManager:
 
     def get_active(self):
         return self._active
+
+    def canStartMicrophone(self):
+        return canPlay() and self._state not in (StateType.FORCE_PAUSED, StateType.FORCE_STOPPED, StateType.FORCE_PAUSING) and self._active == ActiveType.PLAYER
+
+    def getHumanActive(self):
+        return self._active.name.replace("_", " ").capitalize()
+
+    def get_previous_state(self):
+        return self._previous_state
+
+
 

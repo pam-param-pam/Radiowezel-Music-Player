@@ -22,7 +22,7 @@ logger = logging.getLogger('Main')
 logger.setLevel(logging.INFO)
 timeBetweenSongs = 0  # seconds
 
-pl.executor = ThreadPoolExecutor(max_workers=10)
+pl.executor = ThreadPoolExecutor(max_workers=5)
 
 
 def process_message(message):
@@ -37,30 +37,31 @@ def process_message(message):
         if action == "play":
             logger.debug("Matched player play")
             pl.play()
-            calculate_pos(True)
+            pl.send_state()
         elif action == "stop":
             logger.debug("Matched player stop")
             pl.stop()
-            calculate_pos(True)
+            pl.send_state()
         elif action == "pause":
             logger.debug("Matched player pause")
             pl.pause()
-            calculate_pos(True)
+            pl.send_state()
         elif action == "smooth_pause":
             logger.debug("Matched player pause")
             pl.pauseFadeout()
-            calculate_pos(True)
+            pl.send_state()
         elif action == "resume":
             logger.debug("Matched player resume")
             pl.play()
-            calculate_pos(True)
+            pl.send_state()
         elif action == "seek":
             logger.debug("Matched player seek")
             pl.seek(jMessage["extras"]["seconds"])
+            pl.send_state()
         elif action == "next":
             logger.debug("Matched player next")
             pl.next()
-            calculate_pos(True)
+            pl.send_state()
         elif action == "set_volume":
             logger.debug("Matched player set volume")
             pl.set_volume(jMessage["extras"]["volume"])
@@ -76,9 +77,9 @@ def process_message(message):
         elif action == "ding_dong":
             logger.debug("Matched player ding dong")
             pl.ding_dong()
-        elif action == "get_pos":
-            logger.debug("Matched player get pos ")
-            calculate_pos(True)
+        elif action == "get_state":
+            logger.debug("Matched player get state ")
+            pl.send_state()
         else:
             logger.warning("None player matched")
 
@@ -116,6 +117,7 @@ def process_message(message):
         if action == "start":
             logger.debug("Matched microphone start")
             pl.start_microphone()
+            pl.send_state()
 
         elif action == "mic_audio":
             logger.debug("Matched microphone mic audio")
@@ -125,6 +127,7 @@ def process_message(message):
         elif action == "stop":
             logger.debug("Matched microphone stop")
             pl.stop_microphone()
+            pl.send_state()
 
     else:
         logger.warning("None worker matched")
@@ -138,8 +141,10 @@ def on_message(webSocket, message):
     exception = future.exception()
     # handle exceptional case
     if exception:
-        print("".join(traceback.TracebackException.from_exception(exception).format()))
-
+        tb = "".join(traceback.TracebackException.from_exception(exception).format())
+        print(tb)
+        pl.communicateBack(
+            {"worker": "unknown", "action": "unknown", "cookie": "rewrite", "status": "error", "info": tb, "taskId": 100_000}, addTaskId=False)
 
 def on_ping(webSocket, message):
     logger.debug("Got a ping! A pong reply has already been automatically sent.")
@@ -168,32 +173,15 @@ ws = websocket.WebSocketApp("ws://192.168.1.14:8000/player", on_message=on_messa
                             on_error=on_error,
                             on_open=on_open, header={"token": 'UlhkaFEzcGhhbXR2ZDNOcllRPT0==='})
 
-
-def calculate_pos(flag=False):
-    length = pl.get_length()
-    if pl.state.currentSong and length:
-
-        FormattedPos = pl.formatSeconds(round(pl.VLCPlayer.get_time() / 1000))
-        FormattedLength = pl.formatSeconds(length / 1000)
-        b = round((pl.VLCPlayer.get_time() * 10000) / length)
-        pl.communicateBack(
-            {"worker": "player", "pos": b, "title": pl.state.getStateMessage(), "taskId": 100_000,
-             "length": FormattedLength, "seconds": FormattedPos}, False)
-
-    else:
-        if flag:
-            pl.communicateBack(
-                {"worker": "player", "pos": 0, "status": "success", "title": "Nothing is playing", "taskId": 100_000,
-                 "length": "00:00", "seconds": "00:00"}, False)
-
-
 def send_pos():
     while True:
         try:
-            calculate_pos()
+            if pl.state.get_state() != StateType.PLAYING:
+                continue
+            pl.send_state()
         except Exception as e:
             logger.error(Fore.RED + "Error happened in send_pos:\n %s", str(e))
-        time.sleep(1)
+        time.sleep(0.9)
 
 
 def run_for_eternity():
@@ -231,25 +219,18 @@ while True:
         time.sleep(10)
         logger.debug("10 seconds passed")
 
-        if not canPlay() and not pl.force_stopped:
+        if not canPlay() and pl.state.get_state() != StateType.FORCE_STOPPED:
             logger.info("Break is over! Stopping music...")
             pl.pauseFadeout()
-            pl.force_stopped = True
+            pl.state.set_state(StateType.FORCE_STOPPED)
 
-        state = pl.state.get_state()
-        if canPlay() and not pl.VLCPlayer.is_playing() and state not in (StateType.PAUSED, StateType.FETCHING, StateType.FORCE_STOPPED, StateType.MICROPHONE_ON):
+        if pl.state.canBreakStartMusic() and not pl.VLCPlayer.is_playing():
             if pl.queue.is_empty():
                 logger.debug("No music to start")
-            elif pl.state.repeat and not pl.force_stopped:
-                logger.debug("Repeating music")
-                pl.play()
-            elif not pl.state.repeat and not pl.force_stopped:
-                logger.debug("Playing next song")
-                pl.play()
             else:
                 logger.info("Break started! Starting music...")
-                pl.force_stopped = False
+                pl.state.set_state(StateType.FETCHING)
                 pl.play()
+
     except Exception as e:
         logger.error(Fore.RED + "Error happened in while TRUE:\n %s", str(e))
-        pl.fetching = False

@@ -1,12 +1,12 @@
 import logging
 import sys
 import time
-import vlc
-from StateManager import StateType
+from typing import List
+
 from colorama import Fore, Style
 from reprint import output
 
-from Fun.ArgsChecker import requireAtLeast, requireExactly, requireNoMoreThan, parseBool
+from Fun.ArgsChecker import requireAtLeast, requireExactly, requireNoMoreThan, parseBool, getTypes
 from Fun.ArgumentException import IncorrectArgument
 from Fun.Command import Command
 from Player import Player
@@ -14,7 +14,7 @@ from Player import Player
 
 class AddCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -23,17 +23,15 @@ class AddCommand(Command):
 
     def execute(self, args):
         requireAtLeast(1, args)
-        try:
-            name = ' '.join(args)
-            self.pl.queue.name_add(name)
-            print(Style.BRIGHT + Fore.MAGENTA + "Added " + str(self.pl.queue.peek(-1)))
-            self.pl.notifyAboutQueueChange()
-        except IndexError:
-            raise IncorrectArgument("no NAME specified")
+
+        name = ' '.join(args)
+        self.pl.queue.name_add(name)
+        print(Style.BRIGHT + Fore.MAGENTA + "Added " + str(self.pl.queue.peek(-1)))
+        self.pl.notifyAboutQueueChange()
 
 
 class HelpCommand(Command):
-    def __init__(self, pl, commands, name):
+    def __init__(self, pl: Player, commands: List[Command], name: tuple[str, ...]):
         super().__init__(name)
         self.commands = commands
         self.pl = pl
@@ -42,28 +40,31 @@ class HelpCommand(Command):
     longDesc = "The `help` command displays information about available commands.\n If given an argument, it will display the long description of the specified command.\n Otherwise, it will display a list of available commands and their short descriptions."
 
     def execute(self, args):
-        if len(args) > 0:
+        requireNoMoreThan(1, args)
+
+        if len(args) == 1:
             for command in self.commands:
                 if args[0] in command.getNames():
                     print(Style.BRIGHT + Fore.LIGHTBLUE_EX + command.getLongDesc())
                     return
-            IncorrectArgument("Command not found")
+            raise IncorrectArgument("Command not found")
         else:
             print(Style.BRIGHT + Fore.CYAN + "Available commands:")
             for command in self.commands:
+                if command.isHidden:
+                    continue
                 print(Style.BRIGHT + " " + Fore.LIGHTMAGENTA_EX + ', '.join(
                     command.getNames()) + ": " + Fore.LIGHTBLUE_EX + command.getShortDesc())
 
 
 class InfoCommand(Command):
 
-    def __init__(self, pl: Player, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
     shortDesc = "Get current player state"
     longDesc = "Get current player state. Including current song, its position in seconds and whatever player is stopped or playing."
-
 
     def execute(self, args):
         requireExactly(0, args)
@@ -82,8 +83,13 @@ class InfoCommand(Command):
                     BRIGHT=Style.BRIGHT,
                     LM=Fore.LIGHTMAGENTA_EX,
                     LB=Fore.LIGHTBLUE_EX)
+                c = "{BRIGHT}{LM}Active process: {LB}{active}".format(
+                    active=self.pl.state.getHumanActive(),
+                    BRIGHT=Style.BRIGHT,
+                    LM=Fore.LIGHTMAGENTA_EX,
+                    LB=Fore.LIGHTBLUE_EX)
 
-                c = "{BRIGHT}{LM}State: {LB}{state}".format(
+                d = "{BRIGHT}{LM}State: {LB}{state}".format(
                     state=self.pl.state.getHumanState(),
                     BRIGHT=Style.BRIGHT,
                     LM=Fore.LIGHTMAGENTA_EX,
@@ -91,6 +97,7 @@ class InfoCommand(Command):
                 op.append(a)
                 op.append(b)
                 op.append(c)
+                op.append(d)
                 sys.stdout.write(u"\u001b[3B")  # Move up
 
                 time.sleep(1)
@@ -99,13 +106,14 @@ class InfoCommand(Command):
                 op.remove(a)
                 op.remove(b)
                 op.remove(c)
-            self.flag = True
+                op.append(d)
 
+            self.flag = True
 
 
 class MoveCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -114,21 +122,18 @@ class MoveCommand(Command):
 
     def execute(self, args):
         requireExactly(2, args)
+        args = getTypes([int, int], args)
         try:
-
-            song = str(self.pl.queue.peek(int(args[0]) - 1))
-            self.pl.queue.move(int(args[0]) - 1, int(args[1]) - 1)
-            print(Style.BRIGHT + Fore.MAGENTA + "Moved " + song + " to " + args[1])
+            song = str(self.pl.queue.peek(args[0] - 1))
+            self.pl.queue.move(args[0] - 1, args[1] - 1)
+            print(Style.BRIGHT + Fore.MAGENTA + "Moved " + song + " to " + Fore.RED + str(args[1]))
             self.pl.notifyAboutQueueChange()
-        except (TypeError, ValueError):
-            raise IncorrectArgument("INDEX must be an int")
-        except IndexError:
-            raise IncorrectArgument("INDEX is not correct")
-
+        except ValueError:
+            raise IncorrectArgument("Incorrect index")
 
 class NextCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -142,7 +147,7 @@ class NextCommand(Command):
 
 class PauseCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -161,7 +166,7 @@ class PauseCommand(Command):
 
 class VolumeCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -169,19 +174,18 @@ class VolumeCommand(Command):
     longDesc = "Get or change volume.\n Example:\n `volume` to get current volume\n 'volume 50' to change volume to 50%."
 
     def execute(self, args):
-        requireAtLeast(0, args)
-        try:
-            self.pl.set_volume(int(args[0]))
-        except (TypeError, ValueError):
-            raise IncorrectArgument("VOLUME must be an int")
+        requireNoMoreThan(1, args)
+        args = getTypes([int], args)
 
-        except IndexError:
+        if len(args) == 1:
+            self.pl.set_volume(args[0])
+        else:
             print(Style.BRIGHT + Fore.MAGENTA + str(self.pl.VLCPlayer.audio_get_volume()))
 
 
 class SeekCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -190,20 +194,13 @@ class SeekCommand(Command):
 
     def execute(self, args):
         requireExactly(1, args)
-        try:
-            pos = int(args[0])
-            self.pl.VLCPlayer.set_time(int(pos * 1000))
-            FormattedPos = self.pl.formatSeconds(round(self.pl.VLCPlayer.get_time() / 1000))
-            print(Style.BRIGHT + Fore.MAGENTA + "Sought to " + FormattedPos)
-        except (TypeError, ValueError):
-            raise IncorrectArgument("TIME must be an int")
-        except IndexError:
-            raise IncorrectArgument("no TIME specified")
+        args = getTypes([int], args)
 
+        self.pl.seek_functionality(args[0])
 
 class RepeatCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -212,23 +209,25 @@ class RepeatCommand(Command):
 
     def execute(self, args):
         requireNoMoreThan(1, args)
-        try:
-            repeat = parseBool(args[0])
-        except (IndexError, TypeError):
-            repeat = self.pl.state.repeat
+        args = getTypes([bool], args)
 
-        self.pl.state.repeat = repeat
-        print(Style.BRIGHT + Fore.MAGENTA + "Repeat is now " + str(self.pl.repeat))
+        if len(args) == 1:
+            state = args[0]
+        else:
+            state = not self.pl.state.repeat
+
+        self.pl.state.repeat = state
+        print(Style.BRIGHT + Fore.MAGENTA + "Repeat is now " + str(self.pl.state.repeat))
 
 
 class RemoveCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
     shortDesc = "Remove a song from the queue"
-    longDesc = "Remove a song from the queue by its index or name.\nExample:\n `remove 1` to remove the first song\n `remove song Hero` to remove a song called 'Hero'."
+    longDesc = "Remove a song from the queue by its index or name.\nExample:\n `remove 1` to remove the first song\n `remove Hero` to remove a song called 'Hero'."
 
     def execute(self, args):
         requireAtLeast(1, args)
@@ -248,7 +247,7 @@ class RemoveCommand(Command):
 
 class QueueCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -275,7 +274,7 @@ class QueueCommand(Command):
 
 class PlayCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -289,7 +288,7 @@ class PlayCommand(Command):
 
 class LogCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -317,9 +316,9 @@ class LogCommand(Command):
 
 class SpeedCommand(Command):
 
-    acceptableSpeeds = ("0.25", "0.5", "0.75", "1", "1.25", "1.5", "2", "2.5", "3")
+    acceptableSpeeds = (0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3)
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
     shortDesc = "Change playback speed"
@@ -327,19 +326,19 @@ class SpeedCommand(Command):
 
     def execute(self, args):
         requireExactly(1, args)
-        try:
-            self.pl.set_speed(float(args[0]))
-            if args[0] in self.acceptableSpeeds:
-                print(Style.BRIGHT + Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + args[0])
-            else:
-                print(Style.BRIGHT + Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + "1")
+        args = getTypes([float], args)
 
-        except (TypeError, ValueError):
-            raise IncorrectArgument("SPEED must be a number")
+        if args[0] in self.acceptableSpeeds:
+            speed = args[0]
+        else:
+            speed = 1
+        self.pl.set_speed(speed)
+        print(Style.BRIGHT + Fore.MAGENTA + "Set playback speed to " + Fore.LIGHTRED_EX + str(speed))
+
 
 class ClearCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -358,7 +357,7 @@ class ClearCommand(Command):
 
 class EvalCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -373,7 +372,7 @@ class EvalCommand(Command):
 
 class DingDongCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -386,24 +385,26 @@ class DingDongCommand(Command):
 
 class FakeMicrophoneCommand(Command):
 
-    def __init__(self, pl: Player, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
-    shortDesc = ""
-    longDesc = ""
+    shortDesc = "Fake function. Do not use."
+    longDesc = "This is a fake function for testing purposes that fakes microphone being active. Do not use it while radiowezeł is LIVE! This function produces ding dong sound!"
+    isHidden = True
 
     def execute(self, args):
         requireExactly(1, args)
-        state = parseBool(args[0])
-        if state:
+        args = getTypes([bool], args)
+
+        if args[0]:
             self.pl.start_microphone()
-        if not state:
+        if not args[0]:
             self.pl.stop_microphone()
 
 class AuthorCommand(Command):
 
-    def __init__(self, pl, name):
+    def __init__(self, pl: Player, name: tuple[str, ...]):
         super().__init__(name)
         self.pl = pl
 
@@ -413,3 +414,5 @@ class AuthorCommand(Command):
     def execute(self, args):
         requireExactly(0, args)
         print(Fore.MAGENTA + "Jebać konfe, kocham Alternatywki i placki ziemniaczane, nie wiem co jeszcze moge napisać, wyslijcie mi zdj swojej karty kredytowej UwU")
+
+

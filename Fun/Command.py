@@ -32,3 +32,12 @@ class Command(ABC):
 
     def getShortDesc(self):
         return self.shortDesc
+
+    @property
+    def isHidden(self):
+        return False
+
+    # @abstractmethod
+    # def undo(self):
+    #     raise NotImplementedError
+

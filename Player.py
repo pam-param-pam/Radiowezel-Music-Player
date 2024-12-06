@@ -20,7 +20,6 @@ from Song import Song
 from SongsQueue import SongsQueue
 from StateManager import StateManager, StateType, ActiveType
 from exceptions import AgeRestrictedVideo, VideoTooLong
-from guard import canPlay
 
 logger = logging.getLogger('Main')
 
@@ -42,7 +41,7 @@ class Player(Thread):
         self.pyAudio = None
         self.stream = None
 
-        self.state = StateManager()
+        self.state: StateManager = StateManager()
 
         # self.repeat = False
         # self.force_stopped = False
@@ -116,7 +115,7 @@ class Player(Thread):
 
     def communicateBack(self, message, addTaskId=True):
         if threading.current_thread().name == "CONSOLE" and addTaskId:
-            m = Style.BRIGHT + Fore.MAGENTA + message["info"]
+            m = Style.BRIGHT
             if message["status"] == "info":
                 m += Fore.LIGHTBLUE_EX
             elif message["status"] == "success":
@@ -128,6 +127,7 @@ class Player(Thread):
             else:
                 m += Fore.LIGHTWHITE_EX
 
+            m += message["info"]
             print(m)
 
         else:
@@ -249,6 +249,7 @@ class Player(Thread):
 
         else:  # nie gra bo nigdy nie gralo
             self.state.set_state(StateType.FETCHING)
+            self.send_state()
             if not self.queue.is_empty() or True:
                 song = self.queue.peek(0)
                 song = "aaaaaaaaaaa"
@@ -260,9 +261,8 @@ class Player(Thread):
                          "info": "Fetching..."})
                     logger.debug("1 in player")
                     # yt = YouTube("https://www.youtube.com/watch?v=" + song.id)
-                    url = "https://idrive.pamparampam.dev/api/stream/G6Py2uLZFjBEjh2mh7A5XE:1tIaam:11hnqcm1VLveCeiuiVY0ow2UYKb0lxgivNepmFmQ1ek?inline=True"
+                    url = "https://idrive.pamparampam.dev/api/stream/6mAfTbwQ9n4v42n5FeiS39:1tJZUe:mniZzxkmZtvM-GnyQVblS4q6asAJ6FlfeDMjudHmg9k?inline=True"
                     print(url)
-
                     logger.debug("2 in player")
                     logger.debug("3 in player")
                     logger.debug("4 in player")
@@ -352,20 +352,28 @@ class Player(Thread):
                 {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "warning",
                  "info": "Nothing is playing"})
 
-    def seek_functionality(self, slideValue):
-        if 0 <= slideValue <= 10000:
-            x = slideValue * round(self.get_length() / 1000) / 10000
-            self.VLCPlayer.set_time(int(x * 1000))
-            return x
-        return 0
+    def seek_functionality(self, seconds):
+        if self.state.get_state() in (StateType.PAUSED, StateType.FORCE_PAUSED, StateType.FORCE_STOPPED) or not self.VLCPlayer.is_playing():
+            self.communicateBack(
+                {"worker": "player", "action": "seek", "cookie": "rewrite", "status": "error", "info": "Play music first"})
+            return
 
-    def seek(self, slideValue):
-        logger.debug("Seek request acknowledged")
-        x = self.seek_functionality(slideValue)
+        self.VLCPlayer.set_time(int(seconds * 1000))
 
         self.communicateBack(
             {"worker": "player", "action": "stop", "cookie": "rewrite", "status": "success",
-             "info": "Sought to " + str(self.formatSeconds(x))})
+             "info": "Sought to " + str(self.formatSeconds(seconds))})
+
+    def seek(self, slideValue):
+        logger.debug("Seek request acknowledged")
+        if not (0 <= slideValue <= 10000):
+            self.communicateBack(
+                {"worker": "player", "action": "seek", "cookie": "rewrite", "status": "error", "info": "slideValue must be between 0 and 100000"})
+            return
+
+        seconds = slideValue * round(self.get_length() / 1000) / 10000
+        self.seek_functionality(seconds)
+
 
     def set_volume(self, volume):
         logger.debug("Set volume request acknowledged")
@@ -422,7 +430,8 @@ class Player(Thread):
             logging.warning("Permission denied: 'queue.json'")
 
         json_str = [ob.__dict__ for ob in self.queue.songs]
-        message = {"taskId": 100_000, "status": "success", "info": "all working fine", "queue": json_str}
+
+        message = {"taskId": 200_000, "status": "success", "info": "all working fine", "queue": json_str}
 
         self.communicateBack(message, addTaskId=False)
 
@@ -432,11 +441,12 @@ class Player(Thread):
             song = self.queue.get_by_id(videoId)
             if song:
                 self.queue.remove_by_id(videoId)
-
-            self.communicateBack(
-                {"worker": "queue", "action": "remove", "cookie": "rewrite", "status": "success",
-                 "info": "Removed " + song.title})
-            self.notifyAboutQueueChange()
+                self.communicateBack(
+                    {"worker": "queue", "action": "remove", "cookie": "rewrite", "status": "success",
+                     "info": "Removed " + song.title})
+                self.notifyAboutQueueChange()
+            else:
+                raise ValueError
         except ValueError:
             self.communicateBack(
                 {"worker": "queue", "action": "move", "cookie": "rewrite", "status": "error", "info": "Wrong videoId"})
@@ -507,14 +517,35 @@ class Player(Thread):
                  "info": "Video too long"})
 
     def ding_dong(self):
+        logger.debug("Ding Dong request acknowledged")
+        if self.state.get_active() != ActiveType.PLAYER:
+            return
+
+        self.state.set_state(StateType.FORCE_PAUSED)
         self.pause()
+        self.state.set_active(ActiveType.DING_DONG)
         mp3_file_path = "assets/ding-dong.mp3"
         p = vlc.MediaPlayer(mp3_file_path)
         p.play()
         time.sleep(4)
-        self.resume()
+        if guard.canPlay():
+            prev_state = self.state.get_previous_state()
+            if prev_state != StateType.PAUSED:
+                self.resume()
+            else:
+                self.state.set_state(prev_state)
 
     def start_microphone(self):
+        logger.debug("Start microphone request acknowledged")
+
+        if not self.state.canStartMicrophone():
+            self.communicateBack(
+                {"worker": "microphone", "action": "start", "cookie": "rewrite", "status": "error",
+                 "info": "Cannot start microphone"})
+            return
+
+        self.state.set_active(ActiveType.DING_DONG)
+        self.send_state()
         self.pyAudio = pyaudio.PyAudio()
         SAMPLE_RATE = 16000
         CHUNK = 1024
@@ -524,8 +555,9 @@ class Player(Thread):
                                         output=True,
                                         frames_per_buffer=CHUNK)
 
+        self.state.set_state(StateType.FORCE_PAUSED)
         self.pause()
-        self.state.set_active(ActiveType.MICROPHONE)
+
         mp3_file_path = "assets/ding-dong.mp3"
         p = vlc.MediaPlayer(mp3_file_path)
         p.play()
@@ -533,18 +565,46 @@ class Player(Thread):
             {"worker": "microphone", "action": "start", "cookie": "rewrite", "status": "success",
              "info": "Started Microphone"})
 
+        time.sleep(4)
+        self.state.set_active(ActiveType.MICROPHONE)
+
     def stop_microphone(self):
+        logger.debug("Stop microphone request acknowledged")
+        if self.state.get_active() != ActiveType.MICROPHONE:
+            self.communicateBack(
+                {"worker": "microphone", "action": "start", "cookie": "rewrite", "status": "error",
+                 "info": "Can't stop: microphone is not active"})
+            self.state.set_state(self.state.get_previous_state())
+
+            return
         self.pyAudio = None
-        self.stream.stop_stream()
+        if self.stream:
+            self.stream.stop_stream()
+
         self.stream = None
 
-        # if not self.state.get_state() != StateType.PAUSED:
-        #     self.play()
-        self.state.set_state(StateType.IDLE)
-        self.resume()
-        time.sleep(60)
+        self.state.set_active(ActiveType.PLAYER)
+
+        if guard.canPlay():
+            prev_state = self.state.get_previous_state()
+            if prev_state != StateType.PAUSED:
+                self.resume()
+            else:
+                self.state.set_state(prev_state)
+
+        self.communicateBack(
+            {"worker": "microphone", "action": "start", "cookie": "rewrite", "status": "success",
+             "info": "Stopped Microphone"})
 
     def process_microphone(self, bytes_data):
+        logger.debug("Process microphone request acknowledged")
+        if not self.stream:
+            return
+
+        # if not guard.isBreakNow():
+        #     self.stop_microphone()
+        #     return
+
         audio_data = base64.b64decode(bytes_data)  # Convert Base64 back to bytes
 
         # Convert bytes to numpy array (assuming 16-bit audio)
@@ -559,3 +619,18 @@ class Player(Thread):
 
         self.stream.write(adjusted_audio_data)  # Directly play the incoming bytes
 
+    def send_state(self):
+        length = self.get_length()
+        if self.state.currentSong and length:
+
+            FormattedPos = self.formatSeconds(round(self.VLCPlayer.get_time() / 1000))
+            FormattedLength = self.formatSeconds(length / 1000)
+            b = round((self.VLCPlayer.get_time() * 10000) / length)
+            self.communicateBack(
+                {"worker": "player", "action": "get_state", "pos": b, "title": self.state.getStateMessage(), "taskId": 100_000,
+                 "length": FormattedLength, "seconds": FormattedPos}, False)
+
+        else:
+            self.communicateBack(
+                {"worker": "player", "action": "get_state", "pos": 0, "status": "success", "title": self.state.getStateMessage(), "taskId": 100_000,
+                 "length": "00:00", "seconds": "00:00"}, False)

@@ -6,10 +6,12 @@ class Song:
         self.author = author
         self.thumbnail = thumbnail
         self.length = length
-        self.url = None
 
     def __str__(self) -> str:
         return self.title
+
+    # def __dict__(self):
+        # return {'id': self.id, 'title': self.title, 'author': self.author, 'thumbnail': self.thumbnail, 'length': self.length}
 
     def __repr__(self):
         return self.title

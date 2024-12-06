@@ -113,16 +113,6 @@ class SongsQueue:
         self.songs = []
 
     def restore(self, videoId, position):
-        yt = YouTube("https://www.youtube.com/watch?v=" + videoId)
-        try:
-
-            song = Song(yt.video_id, yt.title, yt.author, yt.thumbnail_url, yt.length)
-            self.songs.insert(position, song)
-
-        except TypeError as e:
-            logging.critical(str(e) + "\nRETRYING...")
-            self.restore(videoId, position)
-
-        except PytubeError as e:
-            logging.critical(str(e) + "\nRETRYING...")
-            self.restore(videoId, position)
+        video = pafy.new("https://www.youtube.com/watch?v=" + videoId)
+        song = Song(video.videoid, video.title, video.author, video.getbestthumb(), video.length)
+        self.songs.insert(position, song)

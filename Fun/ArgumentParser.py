@@ -1,11 +1,14 @@
 import threading
 import traceback
+from typing import Union
 
 from colorama import Fore, Style
 
+from Fun.ArgumentException import IncorrectArgument
+from Fun.Command import Command
 from Fun.Commands import HelpCommand, RepeatCommand, SeekCommand, MoveCommand, VolumeCommand, QueueCommand, \
     RemoveCommand, InfoCommand, PauseCommand, PlayCommand, AddCommand, NextCommand, SpeedCommand, ClearCommand, EvalCommand, DingDongCommand, LogCommand, AuthorCommand, \
-    FakeMicrophoneCommand
+    FakeMicrophoneCommand, UndoCommand
 
 
 class ArgumentParser:
@@ -13,7 +16,7 @@ class ArgumentParser:
         self.commands = []
         self.pl = pl
         self.thread = None
-        self.last_command = None
+        self.last_command: Union[Command, None] = None
         self.register_command_class(PlayCommand(pl, ("play", "resume")))
         self.register_command_class(NextCommand(pl, ("next",)))
         self.register_command_class(PauseCommand(pl, ("pause", "stop")))
@@ -62,10 +65,11 @@ class ArgumentParser:
                             threading.current_thread().setName("CONSOLE")
                             command.execute(args)
                             return
+                        except IncorrectArgument as e:
+                            print(Style.BRIGHT + Fore.RED + str(e))
                         except Exception as e:
                             print("".join(traceback.TracebackException.from_exception(e).format()))
-                            # print(Style.BRIGHT + Fore.RED + str(e))
-                            return
+
                     self.pl.executor.submit(run)
                     return
             else:
