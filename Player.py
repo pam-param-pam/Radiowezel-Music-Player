@@ -261,7 +261,7 @@ class Player(Thread):
                          "info": "Fetching..."})
                     logger.debug("1 in player")
                     # yt = YouTube("https://www.youtube.com/watch?v=" + song.id)
-                    url = "https://idrive.pamparampam.dev/api/stream/6mAfTbwQ9n4v42n5FeiS39:1tJZUe:mniZzxkmZtvM-GnyQVblS4q6asAJ6FlfeDMjudHmg9k?inline=True"
+                    url = "https://idrive.pamparampam.dev/api/stream/b2kUwysAn3FsUGcjTYLwgA:1tK3QF:6urT5uI1J9raDPF5agW-Gd4wLqHFDI91vBOAPAzfWgY?inline=True"
                     print(url)
                     logger.debug("2 in player")
                     logger.debug("3 in player")
@@ -275,7 +275,7 @@ class Player(Thread):
                     self.VLCPlayer.play()
                     logger.debug("8 in player")
 
-                    self.state.currentSong = Song(author="aa", title="aa", thumbnail="aaa", length=200, id="aaa")
+                    self.state.currentSong = Song(author="The Smiths", title="The Smiths - A Rush And A Push And The Land Is Ours (Official Audio)", thumbnail="aaa", length=200, id="aaa")
 
                     self.state.currentSong.url = url
                     while not self.VLCPlayer.is_playing:
@@ -355,7 +355,7 @@ class Player(Thread):
     def seek_functionality(self, seconds):
         if self.state.get_state() in (StateType.PAUSED, StateType.FORCE_PAUSED, StateType.FORCE_STOPPED) or not self.VLCPlayer.is_playing():
             self.communicateBack(
-                {"worker": "player", "action": "seek", "cookie": "rewrite", "status": "error", "info": "Play music first"})
+                {"worker": "player", "action": "seek", "cookie": "rewrite", "status": "warning", "info": "Play music first"})
             return
 
         self.VLCPlayer.set_time(int(seconds * 1000))

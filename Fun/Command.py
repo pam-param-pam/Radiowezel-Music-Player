@@ -38,6 +38,6 @@ class Command(ABC):
         return False
 
     # @abstractmethod
-    # def undo(self):
-    #     raise NotImplementedError
+    #     # def undo(self):
+    #     #     raise NotImplementedError
 
