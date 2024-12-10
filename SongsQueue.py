@@ -1,14 +1,13 @@
 import logging
-from json import JSONDecodeError
 import os
+from json import JSONDecodeError
+
 import jsonpickle
 import pafy
 from pytube import Search
-from pytube import YouTube
-from pytube.exceptions import RegexMatchError, PytubeError
+from pytube.exceptions import RegexMatchError
 
 from Song import Song
-from exceptions import AgeRestrictedVideo, VideoTooLong
 
 
 class SongsQueue:

@@ -32,7 +32,7 @@ def process_message(message):
 
     taskId = jMessage["taskId"]
     action = jMessage["action"]
-    threading.current_thread().setName(str(taskId))
+    threading.current_thread().name = str(taskId)
     if jMessage["worker"] == "player":
         if action == "play":
             logger.debug("Matched player play")
@@ -166,9 +166,9 @@ def on_error(webSocket, error):
     logger.error(Fore.RED + "Error happened in ws: %s", error)
 
 
-ws = websocket.WebSocketApp("ws://192.168.1.14:8000/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
+# ws = websocket.WebSocketApp("ws://192.168.1.14:8000/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
 
-                            # ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
+ws = websocket.WebSocketApp("wss://pamparampam.dev/player", on_message=on_message, on_ping=on_ping, on_pong=on_pong,
                             on_close=on_close,
                             on_error=on_error,
                             on_open=on_open, header={"token": 'UlhkaFEzcGhhbXR2ZDNOcllRPT0==='})

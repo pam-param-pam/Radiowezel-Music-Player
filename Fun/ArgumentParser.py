@@ -62,7 +62,7 @@ class ArgumentParser:
 
                     def run():
                         try:
-                            threading.current_thread().setName("CONSOLE")
+                            threading.current_thread().name = "CONSOLE"
                             command.execute(args)
                             return
                         except IncorrectArgument as e:

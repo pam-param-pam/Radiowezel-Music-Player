@@ -261,7 +261,7 @@ class Player(Thread):
                          "info": "Fetching..."})
                     logger.debug("1 in player")
                     # yt = YouTube("https://www.youtube.com/watch?v=" + song.id)
-                    url = "https://idrive.pamparampam.dev/api/stream/b2kUwysAn3FsUGcjTYLwgA:1tK3QF:6urT5uI1J9raDPF5agW-Gd4wLqHFDI91vBOAPAzfWgY?inline=True"
+                    url = "https://idrive.pamparampam.dev/api/stream/b2kUwysAn3FsUGcjTYLwgA:1tKmMv:cJvIE7DKy74C1tQoKWfhrN8er_ePoaXHtn2xbKxUhTI?inline=True"
                     print(url)
                     logger.debug("2 in player")
                     logger.debug("3 in player")
